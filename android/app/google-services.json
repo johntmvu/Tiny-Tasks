@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "347861976641",
+    "project_id": "tinytasks-c3045",
+    "storage_bucket": "tinytasks-c3045.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:347861976641:android:3ab8294d2e2c007bb1e8c0",
+        "android_client_info": {
+          "package_name": "com.example.tinytasks"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjv2cw9zC1Hm3YCKNJ5jDMUoPblv1uB60"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
