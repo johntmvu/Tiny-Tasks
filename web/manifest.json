@@ -1,6 +1,6 @@
 {
-    "name": "tinytasks",
-    "short_name": "tinytasks",
+    "name": "tiny_tasks",
+    "short_name": "tiny_tasks",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
