@@ -8,11 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-<<<<<<< HEAD
 import 'package:tinytasks/main.dart';
-=======
-import 'package:tiny_tasks/main.dart';
->>>>>>> 134572b (Sprint 1: login screen + basic task add UI)
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
