@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/task_view.dart';
+import 'repositories/user_repository.dart';
+import 'models/user.dart' as user_models;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,19 +15,38 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   String _errorMessage = "";
+  final _userRepository = UserRepository();
 
   Future<void> signUp() async {
     try {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
-        );
+      );
+      
+      // Create user record in SQLite
+      final newUser = user_models.User(
+        name: _emailController.text.trim().split('@')[0], // Use email prefix as name
+        email: _emailController.text.trim(),
+      );
+      final userId = await _userRepository.createUser(newUser);
+      
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => TaskView(userId: userId),
+        ),
+      );
     } on FirebaseAuthException catch (e) {
-        setState(() {
+      setState(() {
         _errorMessage = e.message ?? "Signup failed";
-        });
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Error: $e";
+      });
     }
-    }
+  }
 
   Future<void> signIn() async {
     try {
@@ -33,13 +54,37 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TaskView()),
-      );
+      
+      // Get user from SQLite by email
+      final user = await _userRepository.getUserByEmail(_emailController.text.trim());
+      if (user == null) {
+        // User doesn't exist in SQLite, create it
+        final newUser = user_models.User(
+          name: _emailController.text.trim().split('@')[0],
+          email: _emailController.text.trim(),
+        );
+        final userId = await _userRepository.createUser(newUser);
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => TaskView(userId: userId),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => TaskView(userId: user.userId!),
+          ),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       setState(() {
         _errorMessage = e.message ?? "Login failed";
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Error: $e";
       });
     }
   }
