@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tinytasks/widgets/task_tile.dart';
 import 'package:tinytasks/models/task.dart';
+import 'package:tinytasks/repositories/task_repository.dart';
 
 class TaskView extends StatefulWidget {
-  const TaskView({super.key});
+  final int userId;
+  
+  const TaskView({super.key, required this.userId});
 
   @override
   State<TaskView> createState() => _TaskViewState();
@@ -12,15 +17,30 @@ class TaskView extends StatefulWidget {
 
 class _TaskViewState extends State<TaskView> {
   DateTime selectedDate = DateTime.now();
-  final List<Task> _tasks = [
-    Task(title: "Review math homework", time: "09:00 AM"),
-    Task(title: "Take medication", time: "10:30 AM", isDone: true),
-    Task(title: "Study for biology quiz", time: "11:00 AM"),
-    Task(title: "Lunch break", time: "12:30 PM"),
-    Task(title: "Practice piano", time: "02:00 PM"),
-    Task(title: "Go for a walk", time: "04:00 PM"),
-    Task(title: "homework", time: "21:33 PM"),
-  ];
+  List<Task> _tasks = [];
+  final TaskRepository _taskRepository = TaskRepository();
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    try {
+      final tasks = await _taskRepository.getTasksByUser(widget.userId);
+      setState(() {
+        _tasks = tasks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading tasks: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -46,6 +66,20 @@ class _TaskViewState extends State<TaskView> {
     setState(() {
       selectedDate = selectedDate.add(const Duration(days: 1));
     });
+  }
+
+  Future<void> _addTask(String title, String time) async {
+    try {
+      final newTask = Task(
+        userId: 1, // Placeholder userId
+        title: title,
+        time: time,
+      );
+      await _taskRepository.createTask(newTask);
+      await _loadTasks(); // Refresh the list
+    } catch (e) {
+      print('Error adding task: $e');
+    }
   }
 
   @override
@@ -90,20 +124,26 @@ class _TaskViewState extends State<TaskView> {
           Divider(),
           // Task list
           Expanded(
-            child: ListView.builder(
-              itemCount: _tasks.length,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemBuilder: (context, index) {
-                return TaskTile(
-                  task: _tasks[index],
-                  onCheckboxChanged: (bool? value) {
-                    setState(() {
-                      _tasks[index].isDone = value ?? false;
-                    });
-                  },
-                );
-              },
-            ),
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    itemCount: _tasks.length,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemBuilder: (context, index) {
+                      return TaskTile(
+                        task: _tasks[index],
+                        onCheckboxChanged: (bool? value) async {
+                          setState(() {
+                            _tasks[index] = _tasks[index].copyWith(
+                              isCompleted: value ?? false,
+                            );
+                          });
+                          // Save to database
+                          await _taskRepository.updateTask(_tasks[index]);
+                        },
+                      );
+                    },
+                  ),
           ),
           Divider(),
         ],
@@ -118,9 +158,7 @@ class _TaskViewState extends State<TaskView> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Your logic here
-                  },
+                  onPressed: _showAddTaskDialog,
                   icon: const Icon(Icons.add),
                   label: const Text("Add Task"),
                   style: ElevatedButton.styleFrom(
@@ -132,6 +170,74 @@ class _TaskViewState extends State<TaskView> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showAddTaskDialog() {
+    final titleController = TextEditingController();
+    TimeOfDay selectedTime = TimeOfDay.now();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add Task'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(labelText: 'Task Title'),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text('Select Time', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 200,
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      initialDateTime: DateTime(
+                        DateTime.now().year,
+                        DateTime.now().month,
+                        DateTime.now().day,
+                        selectedTime.hour,
+                        selectedTime.minute,
+                      ),
+                      onDateTimeChanged: (DateTime newDateTime) {
+                        setDialogState(() {
+                          selectedTime = TimeOfDay.fromDateTime(newDateTime);
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Selected: ${selectedTime.format(context)}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if (titleController.text.isNotEmpty) {
+                      _addTask(titleController.text, selectedTime.format(context));
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

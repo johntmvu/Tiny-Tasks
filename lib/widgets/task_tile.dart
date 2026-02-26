@@ -22,7 +22,7 @@ class TaskTile extends StatelessWidget {
       ),
       child: ListTile(
         leading: Checkbox(
-          value: task.isDone,
+          value: task.isCompleted,
           onChanged: onCheckboxChanged,
           activeColor: Colors.black,
         ),
@@ -30,8 +30,8 @@ class TaskTile extends StatelessWidget {
           task.title,
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            decoration: task.isDone ? TextDecoration.lineThrough : null,
-            color: task.isDone ? Colors.grey : Colors.black87,
+            decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+            color: task.isCompleted ? Colors.grey : Colors.black87,
           ),
         ),
         subtitle: Text(
