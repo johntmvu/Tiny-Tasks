@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'login_page.dart';
+import 'models/task.dart';
+import 'screens/task_detail_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,9 +27,17 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
-      //home: const TaskView(),
       home: LoginPage(),
-
+      onGenerateRoute: (settings) {
+        if (settings.name == TaskDetailView.routeName) {
+          final task = settings.arguments as Task;
+          return MaterialPageRoute(
+            builder: (_) => TaskDetailView(task: task),
+            settings: settings,
+          );
+        }
+        return null;
+      },
     );
   }
 }
