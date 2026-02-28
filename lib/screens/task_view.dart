@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tinytasks/widgets/task_tile.dart';
 import 'package:tinytasks/models/task.dart';
+import 'settings_view.dart';
 import 'package:tinytasks/repositories/task_repository.dart';
 
 class TaskView extends StatefulWidget {
@@ -49,6 +50,7 @@ class _TaskViewState extends State<TaskView> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
+
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
@@ -89,25 +91,37 @@ class _TaskViewState extends State<TaskView> {
         title: const Text('Tiny Tasks'),
         centerTitle: true,
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.settings)),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsView()),
+              );
+            },
+          ),
         ],
       ),
       body: Column(
         children: [
-          Divider(),
-          // Date navigation row
+          const Divider(),
+
+          // Date Navigation
           Row(
             children: [
-              IconButton(icon: Icon(Icons.arrow_back), onPressed: _previousDay),
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _previousDay,
+              ),
               Expanded(
                 child: InkWell(
                   onTap: () => _selectDate(context),
                   child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     alignment: Alignment.center,
                     child: Text(
                       DateFormat('EEE, MMM d, yyyy').format(selectedDate),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -115,14 +129,19 @@ class _TaskViewState extends State<TaskView> {
                   ),
                 ),
               ),
-              IconButton(icon: Icon(Icons.arrow_forward), onPressed: _nextDay),
+              IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                onPressed: _nextDay,
+              ),
             ],
           ),
-          Divider(),
-          // Day Time slider
-          SingleChoice(),
-          Divider(),
-          // Task list
+
+          const Divider(),
+
+          const SingleChoice(),
+
+          const Divider(),
+
           Expanded(
             child: _isLoading
                 ? Center(child: CircularProgressIndicator())
@@ -145,11 +164,11 @@ class _TaskViewState extends State<TaskView> {
                     },
                   ),
           ),
-          Divider(),
+
+          const Divider(),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
         color: Colors.white,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -267,7 +286,7 @@ class _SingleChoiceState extends State<SingleChoice> {
           ButtonSegment<Calendar>(
             value: Calendar.am,
             label: Text('AM'),
-            icon: Icon(Icons.sunny_snowing),
+            icon: Icon(Icons.wb_sunny),
           ),
           ButtonSegment<Calendar>(
             value: Calendar.pm,
