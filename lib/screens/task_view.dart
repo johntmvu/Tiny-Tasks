@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:tinytasks/widgets/task_tile.dart';
 import 'package:tinytasks/models/task.dart';
+import 'settings_view.dart';
 
 class TaskView extends StatefulWidget {
   const TaskView({super.key});
@@ -12,6 +13,7 @@ class TaskView extends StatefulWidget {
 
 class _TaskViewState extends State<TaskView> {
   DateTime selectedDate = DateTime.now();
+
   final List<Task> _tasks = [
     Task(title: "Review math homework", time: "09:00 AM"),
     Task(title: "Take medication", time: "10:30 AM", isDone: true),
@@ -19,7 +21,7 @@ class _TaskViewState extends State<TaskView> {
     Task(title: "Lunch break", time: "12:30 PM"),
     Task(title: "Practice piano", time: "02:00 PM"),
     Task(title: "Go for a walk", time: "04:00 PM"),
-    Task(title: "homework", time: "21:33 PM"),
+    Task(title: "Homework", time: "09:33 PM"),
   ];
 
   Future<void> _selectDate(BuildContext context) async {
@@ -29,6 +31,7 @@ class _TaskViewState extends State<TaskView> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
+
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
@@ -55,25 +58,37 @@ class _TaskViewState extends State<TaskView> {
         title: const Text('Tiny Tasks'),
         centerTitle: true,
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.settings)),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsView()),
+              );
+            },
+          ),
         ],
       ),
       body: Column(
         children: [
-          Divider(),
-          // Date navigation row
+          const Divider(),
+
+          // Date Navigation
           Row(
             children: [
-              IconButton(icon: Icon(Icons.arrow_back), onPressed: _previousDay),
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _previousDay,
+              ),
               Expanded(
                 child: InkWell(
                   onTap: () => _selectDate(context),
                   child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     alignment: Alignment.center,
                     child: Text(
                       DateFormat('EEE, MMM d, yyyy').format(selectedDate),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -81,14 +96,19 @@ class _TaskViewState extends State<TaskView> {
                   ),
                 ),
               ),
-              IconButton(icon: Icon(Icons.arrow_forward), onPressed: _nextDay),
+              IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                onPressed: _nextDay,
+              ),
             ],
           ),
-          Divider(),
-          // Day Time slider
-          SingleChoice(),
-          Divider(),
-          // Task list
+
+          const Divider(),
+
+          const SingleChoice(),
+
+          const Divider(),
+
           Expanded(
             child: ListView.builder(
               itemCount: _tasks.length,
@@ -105,30 +125,22 @@ class _TaskViewState extends State<TaskView> {
               },
             ),
           ),
-          Divider(),
+
+          const Divider(),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
         color: Colors.white,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Your logic here
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text("Add Task"),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(0, 50),
-                  ),
-                ),
-              ),
-            ],
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: ElevatedButton.icon(
+            onPressed: () {},
+            icon: const Icon(Icons.add),
+            label: const Text("Add Task"),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50),
+            ),
           ),
         ),
       ),
@@ -161,7 +173,7 @@ class _SingleChoiceState extends State<SingleChoice> {
           ButtonSegment<Calendar>(
             value: Calendar.am,
             label: Text('AM'),
-            icon: Icon(Icons.sunny_snowing),
+            icon: Icon(Icons.wb_sunny),
           ),
           ButtonSegment<Calendar>(
             value: Calendar.pm,
