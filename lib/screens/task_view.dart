@@ -8,9 +8,7 @@ import 'settings_view.dart';
 import 'package:tinytasks/repositories/task_repository.dart';
 
 class TaskView extends StatefulWidget {
-  final int userId;
-  
-  const TaskView({super.key, required this.userId});
+  const TaskView({super.key});
 
   @override
   State<TaskView> createState() => _TaskViewState();
@@ -18,29 +16,13 @@ class TaskView extends StatefulWidget {
 
 class _TaskViewState extends State<TaskView> {
   DateTime selectedDate = DateTime.now();
-  List<Task> _tasks = [];
   final TaskRepository _taskRepository = TaskRepository();
-  bool _isLoading = true;
+  late final String _firebaseUserId;
 
   @override
   void initState() {
     super.initState();
-    _loadTasks();
-  }
-
-  Future<void> _loadTasks() async {
-    try {
-      final tasks = await _taskRepository.getTasksByUser(widget.userId);
-      setState(() {
-        _tasks = tasks;
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading tasks: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    _firebaseUserId = FirebaseAuth.instance.currentUser!.uid;
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -73,12 +55,12 @@ class _TaskViewState extends State<TaskView> {
   Future<void> _addTask(String title, String time) async {
     try {
       final newTask = Task(
-        userId: 1, // Placeholder userId
+        userId: 0, // Placeholder userId
         title: title,
         time: time,
+        isCompleted: false,
       );
-      await _taskRepository.createTask(newTask);
-      await _loadTasks(); // Refresh the list
+      await _taskRepository.createTaskFirestore(newTask, _firebaseUserId);
     } catch (e) {
       print('Error adding task: $e');
     }
@@ -143,26 +125,40 @@ class _TaskViewState extends State<TaskView> {
           const Divider(),
 
           Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _tasks.length,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemBuilder: (context, index) {
-                      return TaskTile(
-                        task: _tasks[index],
-                        onCheckboxChanged: (bool? value) async {
-                          setState(() {
-                            _tasks[index] = _tasks[index].copyWith(
-                              isCompleted: value ?? false,
-                            );
-                          });
-                          // Save to database
-                          await _taskRepository.updateTask(_tasks[index]);
-                        },
-                      );
-                    },
-                  ),
+            child: StreamBuilder<List<Task>>(
+              stream: _taskRepository.getTasksStream(_firebaseUserId),
+              builder: (context, snapshot) {
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text("No tasks yet"));
+                }
+
+                final tasks = snapshot.data!;
+
+                return ListView.builder(
+                  itemCount: tasks.length,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemBuilder: (context, index) {
+                    final task = tasks[index];
+
+                    return TaskTile(
+                      task: task,
+                      onCheckboxChanged: (bool? value) async {
+                        // Firestore update
+                        await _taskRepository.updateTaskFirestore(
+                          task.copyWith(isCompleted: value ?? false),
+                          _firebaseUserId,
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
           ),
 
           const Divider(),

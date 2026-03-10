@@ -1,5 +1,5 @@
 class Task {
-  final int? id;
+  final String? id;
   final int userId;
   final String title;
   final String time;
@@ -17,7 +17,7 @@ class Task {
 
   Map<String, dynamic> toMap() {
     return {
-      'Task_ID': id,
+      'Task_ID': id != null ? int.tryParse(id!) : null,
       'User_ID': userId,
       'Title': title,
       'Time': time,
@@ -28,7 +28,7 @@ class Task {
 
   factory Task.fromMap(Map<String, dynamic> map) {
     return Task(
-      id: map['Task_ID'] as int?,
+      id: map['Task_ID'] ?.toString(),
       userId: map['User_ID'] as int,
       title: map['Title'] as String,
       time: map['Time'] as String,
@@ -37,8 +37,29 @@ class Task {
     );
   }
 
+  // Firestore
+  Map<String, dynamic> toFirestore() {
+    return {
+      'title': title,
+      'time': time,
+      'isCompleted': isCompleted,
+      'createdAt': createdAt,
+    };
+  }
+
+  factory Task.fromFirestore(String docId, Map<String, dynamic> data) {
+    return Task(
+      id: docId,
+      userId: 0, // not needed for Firestore
+      title: data['title'] ?? '',
+      time: data['time'] ?? '',
+      isCompleted: data['isCompleted'] ?? false,
+      createdAt: (data['createdAt'] as dynamic).toDate(),
+    );
+  }
+
   Task copyWith({
-    int? id,
+    String? id,
     int? userId,
     String? title,
     String? time,

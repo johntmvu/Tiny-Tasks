@@ -34,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TaskView(userId: userId),
+          builder: (_) => TaskView(),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -67,14 +67,14 @@ class _LoginPageState extends State<LoginPage> {
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => TaskView(userId: userId),
+            builder: (_) => TaskView(),
           ),
         );
       } else {
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => TaskView(userId: user.userId!),
+            builder: (_) => TaskView(),
           ),
         );
       }
