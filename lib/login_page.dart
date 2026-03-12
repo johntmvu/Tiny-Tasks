@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/task_view.dart';
 import 'repositories/user_repository.dart';
+import 'repositories/task_repository.dart';
 import 'models/user.dart' as user_models;
 
 class LoginPage extends StatefulWidget {
@@ -16,25 +17,30 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   String _errorMessage = "";
   final _userRepository = UserRepository();
+  final _taskRepository = TaskRepository();
 
   Future<void> signUp() async {
     try {
-      final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-      
+      final credential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
+
       // Create user record in SQLite
       final newUser = user_models.User(
-        name: _emailController.text.trim().split('@')[0], // Use email prefix as name
+        name: _emailController.text.trim().split(
+          '@',
+        )[0], // Use email prefix as name
         email: _emailController.text.trim(),
       );
       final userId = await _userRepository.createUser(newUser);
-      
+
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TaskView(userId: userId),
+          builder: (_) =>
+              TaskView(userId: userId, firebaseUserId: credential.user!.uid),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -54,9 +60,12 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      
+
       // Get user from SQLite by email
-      final user = await _userRepository.getUserByEmail(_emailController.text.trim());
+      final firebaseUid = FirebaseAuth.instance.currentUser!.uid;
+      final user = await _userRepository.getUserByEmail(
+        _emailController.text.trim(),
+      );
       if (user == null) {
         // User doesn't exist in SQLite, create it
         final newUser = user_models.User(
@@ -64,17 +73,21 @@ class _LoginPageState extends State<LoginPage> {
           email: _emailController.text.trim(),
         );
         final userId = await _userRepository.createUser(newUser);
+        await _taskRepository.syncFromFirestore(firebaseUid, userId);
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => TaskView(userId: userId),
+            builder: (_) =>
+                TaskView(userId: userId, firebaseUserId: firebaseUid),
           ),
         );
       } else {
+        await _taskRepository.syncFromFirestore(firebaseUid, user.userId!);
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => TaskView(userId: user.userId!),
+            builder: (_) =>
+                TaskView(userId: user.userId!, firebaseUserId: firebaseUid),
           ),
         );
       }
@@ -139,11 +152,8 @@ class _LoginPageState extends State<LoginPage> {
 
               if (_errorMessage.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                Text(
-                  _errorMessage,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ]
+                Text(_errorMessage, style: const TextStyle(color: Colors.red)),
+              ],
             ],
           ),
         ),

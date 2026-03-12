@@ -3,13 +3,19 @@ import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:tinytasks/widgets/task_tile.dart';
 import 'package:tinytasks/models/task.dart';
+import 'settings_view.dart';
 import 'package:tinytasks/repositories/task_repository.dart';
 import 'package:tinytasks/screens/task_detail_view.dart';
 
 class TaskView extends StatefulWidget {
   final int userId;
-  
-  const TaskView({super.key, required this.userId});
+  final String firebaseUserId;
+
+  const TaskView({
+    super.key,
+    required this.userId,
+    required this.firebaseUserId,
+  });
 
   @override
   State<TaskView> createState() => _TaskViewState();
@@ -27,18 +33,49 @@ class _TaskViewState extends State<TaskView> {
     _loadTasks();
   }
 
+  String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _syncTasks() async {
+    setState(() => _isLoading = true);
+    try {
+      await _taskRepository.syncFromFirestore(
+        widget.firebaseUserId,
+        widget.userId,
+      );
+      await _loadTasks();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Tasks synced')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _loadTasks() async {
     try {
-      final tasks = await _taskRepository.getTasksByUser(widget.userId);
+      final tasks = await _taskRepository.getTasksByUserAndDate(
+        widget.userId,
+        _formatDate(selectedDate),
+      );
+      if (!mounted) return;
       setState(() {
         _tasks = tasks;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading tasks: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load tasks: $e')));
     }
   }
 
@@ -49,36 +86,83 @@ class _TaskViewState extends State<TaskView> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
     );
+
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
+        _isLoading = true;
       });
+      _loadTasks();
     }
   }
 
   void _previousDay() {
     setState(() {
       selectedDate = selectedDate.subtract(const Duration(days: 1));
+      _isLoading = true;
     });
+    _loadTasks();
   }
 
   void _nextDay() {
     setState(() {
       selectedDate = selectedDate.add(const Duration(days: 1));
+      _isLoading = true;
     });
+    _loadTasks();
   }
 
   Future<void> _addTask(String title, String time) async {
     try {
       final newTask = Task(
-        userId: 1, // Placeholder userId
+        userId: widget.userId,
         title: title,
         time: time,
+        date: _formatDate(selectedDate),
       );
-      await _taskRepository.createTask(newTask);
-      await _loadTasks(); // Refresh the list
+
+      await _taskRepository.createTask(
+        newTask,
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
     } catch (e) {
-      print('Error adding task: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to add task: $e')));
+    }
+  }
+
+  Future<void> _updateTask(Task task, {String? title, String? time}) async {
+    try {
+      final updatedTask = task.copyWith(title: title, time: time);
+
+      await _taskRepository.updateTask(
+        updatedTask,
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update task: $e')));
+    }
+  }
+
+  Future<void> _deleteTask(String taskId) async {
+    try {
+      await _taskRepository.deleteTask(
+        int.parse(taskId),
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete task: $e')));
     }
   }
 
@@ -89,25 +173,38 @@ class _TaskViewState extends State<TaskView> {
         title: const Text('Tiny Tasks'),
         centerTitle: true,
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.settings)),
+          IconButton(icon: const Icon(Icons.sync), onPressed: _syncTasks),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsView()),
+              );
+            },
+          ),
         ],
       ),
       body: Column(
         children: [
-          Divider(),
-          // Date navigation row
+          const Divider(),
+
+          // Date Navigation
           Row(
             children: [
-              IconButton(icon: Icon(Icons.arrow_back), onPressed: _previousDay),
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _previousDay,
+              ),
               Expanded(
                 child: InkWell(
                   onTap: () => _selectDate(context),
                   child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     alignment: Alignment.center,
                     child: Text(
                       DateFormat('EEE, MMM d, yyyy').format(selectedDate),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -115,14 +212,19 @@ class _TaskViewState extends State<TaskView> {
                   ),
                 ),
               ),
-              IconButton(icon: Icon(Icons.arrow_forward), onPressed: _nextDay),
+              IconButton(
+                icon: const Icon(Icons.arrow_forward),
+                onPressed: _nextDay,
+              ),
             ],
           ),
-          Divider(),
-          // Day Time slider
-          SingleChoice(),
-          Divider(),
-          // Task list
+
+          const Divider(),
+
+          const SingleChoice(),
+
+          const Divider(),
+
           Expanded(
             child: _isLoading
                 ? Center(child: CircularProgressIndicator())
@@ -139,23 +241,26 @@ class _TaskViewState extends State<TaskView> {
                           );
                         },
                         onCheckboxChanged: (bool? value) async {
-                          setState(() {
-                            _tasks[index] = _tasks[index].copyWith(
-                              isCompleted: value ?? false,
-                            );
-                          });
-                          // Save to database
-                          await _taskRepository.updateTask(_tasks[index]);
+                          final updatedTask = _tasks[index].copyWith(
+                            isCompleted: value ?? false,
+                          );
+                          await _taskRepository.updateTask(
+                            updatedTask,
+                            firebaseUserId: widget.firebaseUserId,
+                          );
+                          await _loadTasks();
                         },
+                        onEdit: () => _showEditTaskDialog(_tasks[index]),
+                        onDelete: () => _showDeleteTaskDialog(_tasks[index]),
                       );
                     },
                   ),
           ),
-          Divider(),
+
+          const Divider(),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
         color: Colors.white,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -181,7 +286,7 @@ class _TaskViewState extends State<TaskView> {
 
   void _showAddTaskDialog() {
     final titleController = TextEditingController();
-    TimeOfDay selectedTime = TimeOfDay.now();
+    var selectedTime = TimeOfDay.now();
 
     showDialog(
       context: context,
@@ -198,7 +303,10 @@ class _TaskViewState extends State<TaskView> {
                     decoration: const InputDecoration(labelText: 'Task Title'),
                   ),
                   const SizedBox(height: 24),
-                  const Text('Select Time', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Select Time',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 200,
@@ -221,7 +329,10 @@ class _TaskViewState extends State<TaskView> {
                   const SizedBox(height: 16),
                   Text(
                     'Selected: ${selectedTime.format(context)}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -233,7 +344,10 @@ class _TaskViewState extends State<TaskView> {
                 TextButton(
                   onPressed: () {
                     if (titleController.text.isNotEmpty) {
-                      _addTask(titleController.text, selectedTime.format(context));
+                      _addTask(
+                        titleController.text.trim(),
+                        selectedTime.format(context),
+                      );
                       Navigator.pop(context);
                     }
                   },
@@ -245,6 +359,107 @@ class _TaskViewState extends State<TaskView> {
         );
       },
     );
+  }
+
+  void _showEditTaskDialog(Task task) {
+    final titleController = TextEditingController(text: task.title);
+    var selectedTime = TimeOfDay.now();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Task'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(labelText: 'Task Title'),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Select Time',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 200,
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      initialDateTime: DateTime(
+                        DateTime.now().year,
+                        DateTime.now().month,
+                        DateTime.now().day,
+                        selectedTime.hour,
+                        selectedTime.minute,
+                      ),
+                      onDateTimeChanged: (DateTime newDateTime) {
+                        setDialogState(() {
+                          selectedTime = TimeOfDay.fromDateTime(newDateTime);
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Selected: ${selectedTime.format(context)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if (titleController.text.trim().isEmpty) return;
+                    _updateTask(
+                      task,
+                      title: titleController.text.trim(),
+                      time: selectedTime.format(context),
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showDeleteTaskDialog(Task task) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: Text('Delete "${task.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true && task.id != null) {
+      await _deleteTask(task.id!);
+    }
   }
 }
 
@@ -273,7 +488,7 @@ class _SingleChoiceState extends State<SingleChoice> {
           ButtonSegment<Calendar>(
             value: Calendar.am,
             label: Text('AM'),
-            icon: Icon(Icons.sunny_snowing),
+            icon: Icon(Icons.wb_sunny),
           ),
           ButtonSegment<Calendar>(
             value: Calendar.pm,
