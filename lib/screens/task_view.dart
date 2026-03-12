@@ -234,12 +234,7 @@ class _TaskViewState extends State<TaskView> {
                     itemBuilder: (context, index) {
                       return TaskTile(
                         task: _tasks[index],
-                        onTap: () {
-                          Navigator.of(context).pushNamed(
-                            TaskDetailView.routeName,
-                            arguments: _tasks[index],
-                          );
-                        },
+                        onTap: () => TaskDetailView.show(context, _tasks[index]),
                         onCheckboxChanged: (bool? value) async {
                           final updatedTask = _tasks[index].copyWith(
                             isCompleted: value ?? false,
