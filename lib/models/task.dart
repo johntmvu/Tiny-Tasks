@@ -3,6 +3,7 @@ class Task {
   final int userId;
   final String title;
   final String time;
+  final String date; // stored as yyyy-MM-dd
   final bool isCompleted;
   final DateTime createdAt;
 
@@ -11,6 +12,7 @@ class Task {
     required this.userId,
     required this.title,
     required this.time,
+    required this.date,
     this.isCompleted = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
@@ -21,6 +23,7 @@ class Task {
       'User_ID': userId,
       'Title': title,
       'Time': time,
+      'Date': date,
       'Is_Completed': isCompleted ? 1 : 0,
       'Created_At': createdAt.toIso8601String(),
     };
@@ -28,10 +31,11 @@ class Task {
 
   factory Task.fromMap(Map<String, dynamic> map) {
     return Task(
-      id: map['Task_ID'] ?.toString(),
+      id: map['Task_ID']?.toString(),
       userId: map['User_ID'] as int,
       title: map['Title'] as String,
-      time: map['Time'] as String,
+      time: (map['Time'] as String?) ?? '',
+      date: (map['Date'] as String?) ?? '',
       isCompleted: map['Is_Completed'] == 1,
       createdAt: DateTime.parse(map['Created_At'] as String),
     );
@@ -42,6 +46,7 @@ class Task {
     return {
       'title': title,
       'time': time,
+      'date': date,
       'isCompleted': isCompleted,
       'createdAt': createdAt,
     };
@@ -53,6 +58,7 @@ class Task {
       userId: 0, // not needed for Firestore
       title: data['title'] ?? '',
       time: data['time'] ?? '',
+      date: data['date'] ?? '',
       isCompleted: data['isCompleted'] ?? false,
       createdAt: (data['createdAt'] as dynamic).toDate(),
     );
@@ -63,6 +69,7 @@ class Task {
     int? userId,
     String? title,
     String? time,
+    String? date,
     bool? isCompleted,
     DateTime? createdAt,
   }) {
@@ -71,6 +78,7 @@ class Task {
       userId: userId ?? this.userId,
       title: title ?? this.title,
       time: time ?? this.time,
+      date: date ?? this.date,
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
     );

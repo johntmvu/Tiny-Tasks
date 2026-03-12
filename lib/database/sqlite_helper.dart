@@ -33,8 +33,9 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 4,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
       onConfigure: (db) async {
         // Enable foreign key constraints
         await db.execute('PRAGMA foreign_keys = ON');
@@ -61,18 +62,69 @@ class SQLiteHelper {
       )
     ''');
 
-    // Task table 
+    // Task table
     await db.execute('''
       CREATE TABLE Task (
         Task_ID $idType,
         User_ID $integerType,
         Title $textType,
         Time $textType,
+        Date TEXT NOT NULL DEFAULT '',
         Is_Completed $integerType DEFAULT 0,
         Created_At $textType,
         FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // v2 added a Date column
+      final tableInfo = await db.rawQuery('PRAGMA table_info(Task)');
+      final cols = tableInfo
+          .map((c) => (c['name'] as String).toLowerCase())
+          .toSet();
+      if (!cols.contains('date')) {
+        await db.execute(
+          "ALTER TABLE Task ADD COLUMN Date TEXT NOT NULL DEFAULT ''",
+        );
+      }
+    }
+    if (oldVersion < 3) {
+      // v3 ensures Time column exists (earlier migrations may have dropped it)
+      final tableInfo = await db.rawQuery('PRAGMA table_info(Task)');
+      final cols = tableInfo
+          .map((c) => (c['name'] as String).toLowerCase())
+          .toSet();
+      if (!cols.contains('time')) {
+        await db.execute(
+          "ALTER TABLE Task ADD COLUMN Time TEXT NOT NULL DEFAULT ''",
+        );
+      }
+      if (!cols.contains('date')) {
+        await db.execute(
+          "ALTER TABLE Task ADD COLUMN Date TEXT NOT NULL DEFAULT ''",
+        );
+      }
+    }
+    if (oldVersion < 4) {
+      // v4 drops and recreates Task table to remove old columns like Due_Date
+      await db.execute('DROP TABLE IF EXISTS Task');
+      const textType = 'TEXT NOT NULL';
+      const integerType = 'INTEGER NOT NULL';
+      await db.execute('''
+        CREATE TABLE Task (
+          Task_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          User_ID $integerType,
+          Title $textType,
+          Time $textType,
+          Date TEXT NOT NULL DEFAULT '',
+          Is_Completed $integerType DEFAULT 0,
+          Created_At $textType,
+          FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
+        )
+      ''');
+    }
   }
 
   // ==================== USER CRUD ====================
@@ -83,11 +135,7 @@ class SQLiteHelper {
 
   Future<User?> getUser(int id) async {
     final db = await database;
-    final maps = await db.query(
-      'User',
-      where: 'User_ID = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query('User', where: 'User_ID = ?', whereArgs: [id]);
     if (maps.isNotEmpty) {
       return User.fromMap(maps.first);
     }
@@ -96,11 +144,7 @@ class SQLiteHelper {
 
   Future<User?> getUserByEmail(String email) async {
     final db = await database;
-    final maps = await db.query(
-      'User',
-      where: 'Email = ?',
-      whereArgs: [email],
-    );
+    final maps = await db.query('User', where: 'Email = ?', whereArgs: [email]);
     if (maps.isNotEmpty) {
       return User.fromMap(maps.first);
     }
@@ -119,11 +163,7 @@ class SQLiteHelper {
 
   Future<int> deleteUser(int id) async {
     final db = await database;
-    return await db.delete(
-      'User',
-      where: 'User_ID = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('User', where: 'User_ID = ?', whereArgs: [id]);
   }
 
   // ==================== TASK CRUD ====================
@@ -134,11 +174,7 @@ class SQLiteHelper {
 
   Future<Task?> getTask(int id) async {
     final db = await database;
-    final maps = await db.query(
-      'Task',
-      where: 'Task_ID = ?',
-      whereArgs: [id],
-    );
+    final maps = await db.query('Task', where: 'Task_ID = ?', whereArgs: [id]);
     if (maps.isNotEmpty) {
       return Task.fromMap(maps.first);
     }
@@ -156,6 +192,17 @@ class SQLiteHelper {
     return maps.map((map) => Task.fromMap(map)).toList();
   }
 
+  Future<List<Task>> getTasksByUserAndDate(int userId, String date) async {
+    final db = await database;
+    final maps = await db.query(
+      'Task',
+      where: 'User_ID = ? AND Date = ?',
+      whereArgs: [userId, date],
+      orderBy: 'Time ASC',
+    );
+    return maps.map((map) => Task.fromMap(map)).toList();
+  }
+
   Future<int> updateTask(Task task) async {
     final db = await database;
     return await db.update(
@@ -168,11 +215,7 @@ class SQLiteHelper {
 
   Future<int> deleteTask(int id) async {
     final db = await database;
-    return await db.delete(
-      'Task',
-      where: 'Task_ID = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('Task', where: 'Task_ID = ?', whereArgs: [id]);
   }
 
   Future<void> close() async {

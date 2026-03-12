@@ -4,11 +4,15 @@ import '../models/task.dart';
 class TaskTile extends StatelessWidget {
   final Task task;
   final Function(bool?) onCheckboxChanged;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const TaskTile({
     super.key,
     required this.task,
     required this.onCheckboxChanged,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -37,6 +41,35 @@ class TaskTile extends StatelessWidget {
         subtitle: Text(
           task.time,
           style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+        ),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (value) {
+            if (value == 'edit') onEdit();
+            if (value == 'delete') onDelete();
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'edit',
+              child: Row(
+                children: [
+                  Icon(Icons.edit, size: 18),
+                  SizedBox(width: 8),
+                  Text('Edit'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, size: 18, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Delete', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

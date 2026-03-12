@@ -1,17 +1,31 @@
 import '../database/sqlite_helper.dart';
 import '../models/task.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaskRepository {
   final SQLiteHelper _dbHelper;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   TaskRepository({SQLiteHelper? dbHelper})
-      : _dbHelper = dbHelper ?? SQLiteHelper.instance;
+    : _dbHelper = dbHelper ?? SQLiteHelper.instance;
 
-  // SQLite Methods
-  Future<int> createTask(Task task) async {
-    return await _dbHelper.insertTask(task);
+  CollectionReference _tasksCollection(String firebaseUserId) =>
+      _firestore.collection('users').doc(firebaseUserId).collection('tasks');
+
+  // ==================== Combined CRUD (SQLite + Firestore) ====================
+
+  /// Create task locally, then sync to Firestore.
+  /// Returns the SQLite row ID.
+  Future<int> createTask(Task task, {String? firebaseUserId}) async {
+    final sqliteId = await _dbHelper.insertTask(task);
+
+    if (firebaseUserId != null) {
+      final taskWithId = task.copyWith(id: sqliteId.toString());
+      await _tasksCollection(
+        firebaseUserId,
+      ).doc(sqliteId.toString()).set(taskWithId.toFirestore());
+    }
+    return sqliteId;
   }
 
   Future<Task?> getTaskById(int id) async {
@@ -22,72 +36,69 @@ class TaskRepository {
     return await _dbHelper.getTasksByUser(userId);
   }
 
-  Future<int> updateTask(Task task) async {
-    return await _dbHelper.updateTask(task);
+  Future<List<Task>> getTasksByUserAndDate(int userId, String date) async {
+    return await _dbHelper.getTasksByUserAndDate(userId, date);
   }
 
-  Future<int> deleteTask(int id) async {
-    return await _dbHelper.deleteTask(id);
+  /// Update task locally, then sync to Firestore.
+  Future<int> updateTask(Task task, {String? firebaseUserId}) async {
+    final result = await _dbHelper.updateTask(task);
+
+    if (firebaseUserId != null && task.id != null) {
+      await _tasksCollection(
+        firebaseUserId,
+      ).doc(task.id).update(task.toFirestore());
+    }
+    return result;
   }
 
+  /// Delete task locally, then remove from Firestore.
+  Future<int> deleteTask(int id, {String? firebaseUserId}) async {
+    final result = await _dbHelper.deleteTask(id);
 
-// Firestore Methods
-/// Create task in Firestore
-  Future<void> createTaskFirestore(Task task, String firebaseUserId) async {
-    await _firestore
-        .collection('users')
-        .doc(firebaseUserId)
-        .collection('tasks')
-        .add({
-      'title': task.title,
-      'time': task.time,
-      'isCompleted': task.isCompleted,
-      'createdAt': Timestamp.now(),
-    });
+    if (firebaseUserId != null) {
+      await _tasksCollection(firebaseUserId).doc(id.toString()).delete();
+    }
+    return result;
   }
 
-  /// Real-time task stream
+  // ==================== Firestore-only methods ====================
+
+  /// Real-time task stream from Firestore
   Stream<List<Task>> getTasksStream(String firebaseUserId) {
-    return _firestore
-        .collection('users')
-        .doc(firebaseUserId)
-        .collection('tasks')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
+    return _tasksCollection(
+      firebaseUserId,
+    ).orderBy('createdAt', descending: true).snapshots().map((snapshot) {
       return snapshot.docs.map((doc) {
-        return Task(
-          id: doc.id, // Firestore string ID → int fallback
-          title: doc['title'],
-          time: doc['time'],
-          isCompleted: doc['isCompleted'],
-          userId: 0, // not needed for Firestore
-        );
+        return Task.fromFirestore(doc.id, doc.data() as Map<String, dynamic>);
       }).toList();
     });
   }
 
-  /// Update Firestore task
-  Future<void> updateTaskFirestore(Task task, String firebaseUserId) async {
-    await _firestore
-        .collection('users')
-        .doc(firebaseUserId)
-        .collection('tasks')
-        .doc(task.id)
-        .update({
-      'isCompleted': task.isCompleted,
-      'title': task.title,
-      'time': task.time,
-    });
-  }
+  /// Pull all tasks from Firestore and merge into SQLite.
+  /// Existing local tasks (by ID) are skipped; new ones are inserted.
+  Future<void> syncFromFirestore(String firebaseUserId, int localUserId) async {
+    final snapshot = await _tasksCollection(firebaseUserId).get();
 
-  /// Delete Firestore task
-  Future<void> deleteTaskFirestore(String taskId, String firebaseUserId) async {
-    await _firestore
-        .collection('users')
-        .doc(firebaseUserId)
-        .collection('tasks')
-        .doc(taskId)
-        .delete();
+    for (final doc in snapshot.docs) {
+      final firestoreId = int.tryParse(doc.id);
+      if (firestoreId == null) continue;
+
+      final existing = await _dbHelper.getTask(firestoreId);
+      if (existing == null) {
+        final data = doc.data() as Map<String, dynamic>;
+        final task = Task(
+          id: doc.id,
+          userId: localUserId,
+          title: data['title'] ?? '',
+          time: data['time'] ?? '',
+          date: data['date'] ?? '',
+          isCompleted: data['isCompleted'] ?? false,
+          createdAt:
+              (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        );
+        await _dbHelper.insertTask(task);
+      }
+    }
   }
 }
