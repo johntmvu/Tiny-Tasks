@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tinytasks/widgets/task_tile.dart';
 import 'package:tinytasks/models/task.dart';
 import 'settings_view.dart';
 import 'package:tinytasks/repositories/task_repository.dart';
 
 class TaskView extends StatefulWidget {
-  const TaskView({super.key});
+  final int userId;
+  final String firebaseUserId;
+
+  const TaskView({
+    super.key,
+    required this.userId,
+    required this.firebaseUserId,
+  });
 
   @override
   State<TaskView> createState() => _TaskViewState();
@@ -16,13 +22,60 @@ class TaskView extends StatefulWidget {
 
 class _TaskViewState extends State<TaskView> {
   DateTime selectedDate = DateTime.now();
+  List<Task> _tasks = [];
   final TaskRepository _taskRepository = TaskRepository();
-  late final String _firebaseUserId;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _firebaseUserId = FirebaseAuth.instance.currentUser!.uid;
+    _loadTasks();
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _syncTasks() async {
+    setState(() => _isLoading = true);
+    try {
+      await _taskRepository.syncFromFirestore(
+        widget.firebaseUserId,
+        widget.userId,
+      );
+      await _loadTasks();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Tasks synced')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadTasks() async {
+    try {
+      final tasks = await _taskRepository.getTasksByUserAndDate(
+        widget.userId,
+        _formatDate(selectedDate),
+      );
+      if (!mounted) return;
+      setState(() {
+        _tasks = tasks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load tasks: $e')));
+    }
   }
 
   Future<void> _selectDate(BuildContext context) async {
@@ -36,33 +89,79 @@ class _TaskViewState extends State<TaskView> {
     if (picked != null && picked != selectedDate) {
       setState(() {
         selectedDate = picked;
+        _isLoading = true;
       });
+      _loadTasks();
     }
   }
 
   void _previousDay() {
     setState(() {
       selectedDate = selectedDate.subtract(const Duration(days: 1));
+      _isLoading = true;
     });
+    _loadTasks();
   }
 
   void _nextDay() {
     setState(() {
       selectedDate = selectedDate.add(const Duration(days: 1));
+      _isLoading = true;
     });
+    _loadTasks();
   }
 
   Future<void> _addTask(String title, String time) async {
     try {
       final newTask = Task(
-        userId: 0, // Placeholder userId
+        userId: widget.userId,
         title: title,
         time: time,
-        isCompleted: false,
+        date: _formatDate(selectedDate),
       );
-      await _taskRepository.createTaskFirestore(newTask, _firebaseUserId);
+
+      await _taskRepository.createTask(
+        newTask,
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
     } catch (e) {
-      print('Error adding task: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to add task: $e')));
+    }
+  }
+
+  Future<void> _updateTask(Task task, {String? title, String? time}) async {
+    try {
+      final updatedTask = task.copyWith(title: title, time: time);
+
+      await _taskRepository.updateTask(
+        updatedTask,
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update task: $e')));
+    }
+  }
+
+  Future<void> _deleteTask(String taskId) async {
+    try {
+      await _taskRepository.deleteTask(
+        int.parse(taskId),
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete task: $e')));
     }
   }
 
@@ -73,6 +172,7 @@ class _TaskViewState extends State<TaskView> {
         title: const Text('Tiny Tasks'),
         centerTitle: true,
         actions: [
+          IconButton(icon: const Icon(Icons.sync), onPressed: _syncTasks),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
@@ -125,40 +225,29 @@ class _TaskViewState extends State<TaskView> {
           const Divider(),
 
           Expanded(
-            child: StreamBuilder<List<Task>>(
-              stream: _taskRepository.getTasksStream(_firebaseUserId),
-              builder: (context, snapshot) {
-
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text("No tasks yet"));
-                }
-
-                final tasks = snapshot.data!;
-
-                return ListView.builder(
-                  itemCount: tasks.length,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemBuilder: (context, index) {
-                    final task = tasks[index];
-
-                    return TaskTile(
-                      task: task,
-                      onCheckboxChanged: (bool? value) async {
-                        // Firestore update
-                        await _taskRepository.updateTaskFirestore(
-                          task.copyWith(isCompleted: value ?? false),
-                          _firebaseUserId,
-                        );
-                      },
-                    );
-                  },
-                );
-              },
-            ),
+            child: _isLoading
+                ? Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    itemCount: _tasks.length,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemBuilder: (context, index) {
+                      return TaskTile(
+                        task: _tasks[index],
+                        onCheckboxChanged: (bool? value) async {
+                          final updatedTask = _tasks[index].copyWith(
+                            isCompleted: value ?? false,
+                          );
+                          await _taskRepository.updateTask(
+                            updatedTask,
+                            firebaseUserId: widget.firebaseUserId,
+                          );
+                          await _loadTasks();
+                        },
+                        onEdit: () => _showEditTaskDialog(_tasks[index]),
+                        onDelete: () => _showDeleteTaskDialog(_tasks[index]),
+                      );
+                    },
+                  ),
           ),
 
           const Divider(),
@@ -190,7 +279,7 @@ class _TaskViewState extends State<TaskView> {
 
   void _showAddTaskDialog() {
     final titleController = TextEditingController();
-    TimeOfDay selectedTime = TimeOfDay.now();
+    var selectedTime = TimeOfDay.now();
 
     showDialog(
       context: context,
@@ -207,7 +296,10 @@ class _TaskViewState extends State<TaskView> {
                     decoration: const InputDecoration(labelText: 'Task Title'),
                   ),
                   const SizedBox(height: 24),
-                  const Text('Select Time', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Select Time',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 200,
@@ -230,7 +322,10 @@ class _TaskViewState extends State<TaskView> {
                   const SizedBox(height: 16),
                   Text(
                     'Selected: ${selectedTime.format(context)}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -242,7 +337,10 @@ class _TaskViewState extends State<TaskView> {
                 TextButton(
                   onPressed: () {
                     if (titleController.text.isNotEmpty) {
-                      _addTask(titleController.text, selectedTime.format(context));
+                      _addTask(
+                        titleController.text.trim(),
+                        selectedTime.format(context),
+                      );
                       Navigator.pop(context);
                     }
                   },
@@ -254,6 +352,107 @@ class _TaskViewState extends State<TaskView> {
         );
       },
     );
+  }
+
+  void _showEditTaskDialog(Task task) {
+    final titleController = TextEditingController(text: task.title);
+    var selectedTime = TimeOfDay.now();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Task'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(labelText: 'Task Title'),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Select Time',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 200,
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      initialDateTime: DateTime(
+                        DateTime.now().year,
+                        DateTime.now().month,
+                        DateTime.now().day,
+                        selectedTime.hour,
+                        selectedTime.minute,
+                      ),
+                      onDateTimeChanged: (DateTime newDateTime) {
+                        setDialogState(() {
+                          selectedTime = TimeOfDay.fromDateTime(newDateTime);
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Selected: ${selectedTime.format(context)}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if (titleController.text.trim().isEmpty) return;
+                    _updateTask(
+                      task,
+                      title: titleController.text.trim(),
+                      time: selectedTime.format(context),
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showDeleteTaskDialog(Task task) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: Text('Delete "${task.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true && task.id != null) {
+      await _deleteTask(task.id!);
+    }
   }
 }
 
