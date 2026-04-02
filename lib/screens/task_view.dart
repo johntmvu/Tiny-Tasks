@@ -5,6 +5,7 @@ import 'package:tinytasks/widgets/task_tile.dart';
 import 'package:tinytasks/models/task.dart';
 import 'settings_view.dart';
 import 'package:tinytasks/repositories/task_repository.dart';
+import 'package:tinytasks/screens/task_detail_view.dart';
 
 class TaskView extends StatefulWidget {
   final int userId;
@@ -233,6 +234,7 @@ class _TaskViewState extends State<TaskView> {
                     itemBuilder: (context, index) {
                       return TaskTile(
                         task: _tasks[index],
+                        onTap: () => TaskDetailView.show(context, _tasks[index]),
                         onCheckboxChanged: (bool? value) async {
                           final updatedTask = _tasks[index].copyWith(
                             isCompleted: value ?? false,

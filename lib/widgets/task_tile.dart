@@ -4,6 +4,7 @@ import '../models/task.dart';
 class TaskTile extends StatelessWidget {
   final Task task;
   final Function(bool?) onCheckboxChanged;
+  final VoidCallback? onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -11,6 +12,7 @@ class TaskTile extends StatelessWidget {
     super.key,
     required this.task,
     required this.onCheckboxChanged,
+    this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -25,6 +27,7 @@ class TaskTile extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: ListTile(
+        onTap: onTap,
         leading: Checkbox(
           value: task.isCompleted,
           onChanged: onCheckboxChanged,
