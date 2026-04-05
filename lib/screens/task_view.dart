@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
-import 'package:tinytasks/widgets/task_tile.dart';
-import 'package:tinytasks/models/task.dart';
+import '../models/task.dart';
+import '../repositories/task_repository.dart';
+import '../widgets/task_tile.dart';
 import 'settings_view.dart';
-import 'package:tinytasks/repositories/task_repository.dart';
-import 'package:tinytasks/screens/task_detail_view.dart';
 
 class TaskView extends StatefulWidget {
-  final int userId;
-  final String firebaseUserId;
+  final int? userId;
+  final String? firebaseUserId;
 
   const TaskView({
     super.key,
-    required this.userId,
-    required this.firebaseUserId,
+    this.userId,
+    this.firebaseUserId,
   });
 
   @override
@@ -22,10 +20,12 @@ class TaskView extends StatefulWidget {
 }
 
 class _TaskViewState extends State<TaskView> {
-  DateTime selectedDate = DateTime.now();
-  List<Task> _tasks = [];
   final TaskRepository _taskRepository = TaskRepository();
+
+  DateTime _selectedDate = DateTime.now();
+  List<Task> _tasks = [];
   bool _isLoading = true;
+  String _selectedPeriod = 'full';
 
   @override
   void initState() {
@@ -33,243 +33,290 @@ class _TaskViewState extends State<TaskView> {
     _loadTasks();
   }
 
-  String _formatDate(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String get _formattedDate => DateFormat('EEE, MMM d, y').format(_selectedDate);
+  String get _dateKey => DateFormat('yyyy-MM-dd').format(_selectedDate);
 
-  Future<void> _syncTasks() async {
-    setState(() => _isLoading = true);
-    try {
-      await _taskRepository.syncFromFirestore(
-        widget.firebaseUserId,
-        widget.userId,
-      );
-      await _loadTasks();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tasks synced')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Sync failed: $e')));
-      setState(() => _isLoading = false);
+  List<Task> get _filteredTasks {
+    if (_selectedPeriod == 'full') {
+      return _tasks;
     }
+    return _tasks.where((task) => task.period == _selectedPeriod).toList();
   }
 
   Future<void> _loadTasks() async {
+    if (widget.userId == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
-      final tasks = await _taskRepository.getTasksByUserAndDate(
-        widget.userId,
-        _formatDate(selectedDate),
+      final dateTasks = await _taskRepository.getTasksByUserAndDate(
+        widget.userId!,
+        _dateKey,
       );
-      if (!mounted) return;
+
       setState(() {
-        _tasks = tasks;
-        _isLoading = false;
+        _tasks = dateTasks;
       });
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load tasks: $e')));
+      debugPrint('Error loading tasks: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load tasks: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: selectedDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2101),
-    );
-
-    if (picked != null && picked != selectedDate) {
-      setState(() {
-        selectedDate = picked;
-        _isLoading = true;
-      });
-      _loadTasks();
-    }
-  }
-
-  void _previousDay() {
-    setState(() {
-      selectedDate = selectedDate.subtract(const Duration(days: 1));
-      _isLoading = true;
-    });
-    _loadTasks();
-  }
-
-  void _nextDay() {
-    setState(() {
-      selectedDate = selectedDate.add(const Duration(days: 1));
-      _isLoading = true;
-    });
-    _loadTasks();
-  }
-
-  Future<void> _addTask(String title, String time) async {
+  Future<void> _addTask(Task task) async {
     try {
-      final newTask = Task(
-        userId: widget.userId,
-        title: title,
-        time: time,
-        date: _formatDate(selectedDate),
-      );
-
       await _taskRepository.createTask(
-        newTask,
+        task,
         firebaseUserId: widget.firebaseUserId,
       );
       await _loadTasks();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to add task: $e')));
+      debugPrint('Error adding task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add task: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _updateTask(Task task, {String? title, String? time}) async {
+  Future<void> _deleteTask(Task task) async {
     try {
-      final updatedTask = task.copyWith(title: title, time: time);
+      if (task.id != null) {
+        await _taskRepository.deleteTask(
+          task.id!,
+          firebaseUserId: widget.firebaseUserId,
+        );
+        await _loadTasks();
+      }
+    } catch (e) {
+      debugPrint('Error deleting task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete task: $e')),
+        );
+      }
+    }
+  }
 
+  Future<void> _toggleTask(Task task, bool value) async {
+    try {
+      final updatedTask = task.copyWith(isCompleted: value);
       await _taskRepository.updateTask(
         updatedTask,
         firebaseUserId: widget.firebaseUserId,
       );
       await _loadTasks();
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update task: $e')));
+      debugPrint('Error updating task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update task: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _deleteTask(String taskId) async {
-    try {
-      await _taskRepository.deleteTask(
-        int.parse(taskId),
-        firebaseUserId: widget.firebaseUserId,
-      );
-      await _loadTasks();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to delete task: $e')));
-    }
+  void _previousDay() {
+    setState(() {
+      _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+    });
+    _loadTasks();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tiny Tasks'),
-        centerTitle: true,
-        actions: [
-          IconButton(icon: const Icon(Icons.sync), onPressed: _syncTasks),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsView()),
+  void _nextDay() {
+    setState(() {
+      _selectedDate = _selectedDate.add(const Duration(days: 1));
+    });
+    _loadTasks();
+  }
+
+  void _showAddTaskDialog() {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final timeController = TextEditingController();
+    String selectedTaskPeriod = _selectedPeriod;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Add Task',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: StatefulBuilder(
+            builder: (context, setModalState) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: InputDecoration(
+                        labelText: 'Task Title',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Description',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: timeController,
+                      decoration: InputDecoration(
+                        labelText: 'Time (optional)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedTaskPeriod,
+                      decoration: InputDecoration(
+                        labelText: 'Time Slot',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'full', child: Text('Full Day')),
+                        DropdownMenuItem(value: 'am', child: Text('AM')),
+                        DropdownMenuItem(value: 'pm', child: Text('PM')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setModalState(() {
+                            selectedTaskPeriod = value;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
               );
             },
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const Divider(),
-
-          // Date Navigation
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: _previousDay,
-              ),
-              Expanded(
-                child: InkWell(
-                  onTap: () => _selectDate(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    alignment: Alignment.center,
-                    child: Text(
-                      DateFormat('EEE, MMM d, yyyy').format(selectedDate),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD7EEF2),
+                foregroundColor: const Color(0xFF1E5A67),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 0,
               ),
-              IconButton(
-                icon: const Icon(Icons.arrow_forward),
-                onPressed: _nextDay,
-              ),
-            ],
-          ),
+              onPressed: () async {
+                final title = titleController.text.trim();
+                final description = descriptionController.text.trim();
+                final time = timeController.text.trim();
 
-          const Divider(),
+                if (title.isEmpty) return;
 
-          const SingleChoice(),
+                final newTask = Task(
+                  userId: widget.userId,
+                  firebaseUserId: widget.firebaseUserId,
+                  title: title,
+                  description: description.isEmpty ? null : description,
+                  date: _dateKey,
+                  time: time,
+                  isCompleted: false,
+                  period: selectedTaskPeriod,
+                );
 
-          const Divider(),
+                Navigator.pop(context);
+                await _addTask(newTask);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-          Expanded(
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _tasks.length,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemBuilder: (context, index) {
-                      return TaskTile(
-                        task: _tasks[index],
-                        onTap: () => TaskDetailView.show(context, _tasks[index]),
-                        onCheckboxChanged: (bool? value) async {
-                          final updatedTask = _tasks[index].copyWith(
-                            isCompleted: value ?? false,
-                          );
-                          await _taskRepository.updateTask(
-                            updatedTask,
-                            firebaseUserId: widget.firebaseUserId,
-                          );
-                          await _loadTasks();
-                        },
-                        onEdit: () => _showEditTaskDialog(_tasks[index]),
-                        onDelete: () => _showDeleteTaskDialog(_tasks[index]),
-                      );
-                    },
-                  ),
-          ),
-
-          const Divider(),
+  Widget _buildPeriodSelector() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          _buildPeriodButton('Full Day', 'full', Icons.check_rounded),
+          _buildPeriodButton('AM', 'am', Icons.wb_sunny_rounded),
+          _buildPeriodButton('PM', 'pm', Icons.nightlight_round),
         ],
       ),
-      bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+    );
+  }
+
+  Widget _buildPeriodButton(String label, String value, IconData icon) {
+    final bool isSelected = _selectedPeriod == value;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedPeriod = value;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFD7EEF2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _showAddTaskDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text("Add Task"),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(0, 50),
-                  ),
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? const Color(0xFF1E5A67) : Colors.black54,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? const Color(0xFF1E5A67) : Colors.black87,
                 ),
               ),
             ],
@@ -279,224 +326,177 @@ class _TaskViewState extends State<TaskView> {
     );
   }
 
-  void _showAddTaskDialog() {
-    final titleController = TextEditingController();
-    var selectedTime = TimeOfDay.now();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Add Task'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: titleController,
-                    decoration: const InputDecoration(labelText: 'Task Title'),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Select Time',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.time,
-                      initialDateTime: DateTime(
-                        DateTime.now().year,
-                        DateTime.now().month,
-                        DateTime.now().day,
-                        selectedTime.hour,
-                        selectedTime.minute,
-                      ),
-                      onDateTimeChanged: (DateTime newDateTime) {
-                        setDialogState(() {
-                          selectedTime = TimeOfDay.fromDateTime(newDateTime);
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Selected: ${selectedTime.format(context)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    if (titleController.text.isNotEmpty) {
-                      _addTask(
-                        titleController.text.trim(),
-                        selectedTime.format(context),
-                      );
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: const Text('Add'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showEditTaskDialog(Task task) {
-    final titleController = TextEditingController(text: task.title);
-    var selectedTime = TimeOfDay.now();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Edit Task'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: titleController,
-                    decoration: const InputDecoration(labelText: 'Task Title'),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Select Time',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 200,
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.time,
-                      initialDateTime: DateTime(
-                        DateTime.now().year,
-                        DateTime.now().month,
-                        DateTime.now().day,
-                        selectedTime.hour,
-                        selectedTime.minute,
-                      ),
-                      onDateTimeChanged: (DateTime newDateTime) {
-                        setDialogState(() {
-                          selectedTime = TimeOfDay.fromDateTime(newDateTime);
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Selected: ${selectedTime.format(context)}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    if (titleController.text.trim().isEmpty) return;
-                    _updateTask(
-                      task,
-                      title: titleController.text.trim(),
-                      time: selectedTime.format(context),
-                    );
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _showDeleteTaskDialog(Task task) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Task'),
-        content: Text('Delete "${task.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+  Widget _buildDateCard() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            onPressed: _previousDay,
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          ),
+          Text(
+            _formattedDate,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          IconButton(
+            onPressed: _nextDay,
+            icon: const Icon(Icons.arrow_forward_ios_rounded),
           ),
         ],
       ),
     );
-
-    if (shouldDelete == true && task.id != null) {
-      await _deleteTask(task.id!);
-    }
   }
-}
 
-enum Calendar { full, am, pm }
+  Widget _buildEmptyState() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(
+              Icons.event_note_rounded,
+              size: 68,
+              color: Color(0xFFB0BEC5),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'No tasks for this time slot',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Tap "Add Task" to create one.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.black45,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-class SingleChoice extends StatefulWidget {
-  const SingleChoice({super.key});
+  Widget _buildTaskList() {
+    if (_isLoading) {
+      return const Expanded(
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
-  @override
-  State<SingleChoice> createState() => _SingleChoiceState();
-}
+    if (_filteredTasks.isEmpty) {
+      return _buildEmptyState();
+    }
 
-class _SingleChoiceState extends State<SingleChoice> {
-  Calendar calendarView = Calendar.full;
+    return Expanded(
+      child: ListView.builder(
+        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        itemCount: _filteredTasks.length,
+        itemBuilder: (context, index) {
+          final task = _filteredTasks[index];
+          return TaskTile(
+            task: task,
+            onChanged: (value) {
+              _toggleTask(task, value ?? false);
+            },
+            onDelete: () {
+              _deleteTask(task);
+            },
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: SegmentedButton<Calendar>(
-        segments: const <ButtonSegment<Calendar>>[
-          ButtonSegment<Calendar>(
-            value: Calendar.full,
-            label: Text('Full Day'),
-            icon: Icon(Icons.sunny),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'Tiny Tasks',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.w700,
+            fontSize: 22,
           ),
-          ButtonSegment<Calendar>(
-            value: Calendar.am,
-            label: Text('AM'),
-            icon: Icon(Icons.wb_sunny),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+            onPressed: _loadTasks,
           ),
-          ButtonSegment<Calendar>(
-            value: Calendar.pm,
-            label: Text('PM'),
-            icon: Icon(Icons.nightlight_round),
+          IconButton(
+            icon: const Icon(Icons.settings, color: Colors.black87),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsView(),
+                ),
+              );
+            },
           ),
         ],
-        selected: <Calendar>{calendarView},
-        onSelectionChanged: (Set<Calendar> newSelection) {
-          setState(() {
-            calendarView = newSelection.first;
-          });
-        },
+      ),
+      body: Column(
+        children: [
+          _buildDateCard(),
+          _buildPeriodSelector(),
+          _buildTaskList(),
+        ],
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        child: SizedBox(
+          height: 56,
+          child: ElevatedButton.icon(
+            onPressed: _showAddTaskDialog,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text(
+              'Add Task',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD7EEF2),
+              foregroundColor: const Color(0xFF1E5A67),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

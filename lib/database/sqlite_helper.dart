@@ -1,3 +1,5 @@
+
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/user.dart';
@@ -9,7 +11,6 @@ class SQLiteHelper {
 
   SQLiteHelper._init();
 
-  // For testing: create a new instance with in-memory database
   static Future<SQLiteHelper> createInMemory() async {
     final helper = SQLiteHelper._init();
     helper._database = await helper._initDB(':memory:');
@@ -33,11 +34,10 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
-        // Enable foreign key constraints
         await db.execute('PRAGMA foreign_keys = ON');
       },
     );
@@ -48,7 +48,6 @@ class SQLiteHelper {
     const textType = 'TEXT NOT NULL';
     const integerType = 'INTEGER NOT NULL';
 
-    // User table
     await db.execute('''
       CREATE TABLE User (
         User_ID $idType,
@@ -62,53 +61,25 @@ class SQLiteHelper {
       )
     ''');
 
-    // Task table
     await db.execute('''
       CREATE TABLE Task (
         Task_ID $idType,
         User_ID $integerType,
         Title $textType,
-        Time $textType,
+        Time TEXT NOT NULL DEFAULT '',
         Date TEXT NOT NULL DEFAULT '',
-        Is_Completed $integerType DEFAULT 0,
-        Created_At $textType,
+        Is_Completed INTEGER NOT NULL DEFAULT 0,
+        Created_At TEXT NOT NULL,
+        Description TEXT,
+        FirebaseUserId TEXT,
+        Period TEXT NOT NULL DEFAULT 'full',
         FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
       )
     ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // v2 added a Date column
-      final tableInfo = await db.rawQuery('PRAGMA table_info(Task)');
-      final cols = tableInfo
-          .map((c) => (c['name'] as String).toLowerCase())
-          .toSet();
-      if (!cols.contains('date')) {
-        await db.execute(
-          "ALTER TABLE Task ADD COLUMN Date TEXT NOT NULL DEFAULT ''",
-        );
-      }
-    }
-    if (oldVersion < 3) {
-      // v3 ensures Time column exists (earlier migrations may have dropped it)
-      final tableInfo = await db.rawQuery('PRAGMA table_info(Task)');
-      final cols = tableInfo
-          .map((c) => (c['name'] as String).toLowerCase())
-          .toSet();
-      if (!cols.contains('time')) {
-        await db.execute(
-          "ALTER TABLE Task ADD COLUMN Time TEXT NOT NULL DEFAULT ''",
-        );
-      }
-      if (!cols.contains('date')) {
-        await db.execute(
-          "ALTER TABLE Task ADD COLUMN Date TEXT NOT NULL DEFAULT ''",
-        );
-      }
-    }
-    if (oldVersion < 4) {
-      // v4 drops and recreates Task table to remove old columns like Due_Date
+    if (oldVersion < 5) {
       await db.execute('DROP TABLE IF EXISTS Task');
       const textType = 'TEXT NOT NULL';
       const integerType = 'INTEGER NOT NULL';
@@ -117,17 +88,19 @@ class SQLiteHelper {
           Task_ID INTEGER PRIMARY KEY AUTOINCREMENT,
           User_ID $integerType,
           Title $textType,
-          Time $textType,
+          Time TEXT NOT NULL DEFAULT '',
           Date TEXT NOT NULL DEFAULT '',
-          Is_Completed $integerType DEFAULT 0,
-          Created_At $textType,
+          Is_Completed INTEGER NOT NULL DEFAULT 0,
+          Created_At TEXT NOT NULL,
+          Description TEXT,
+          FirebaseUserId TEXT,
+          Period TEXT NOT NULL DEFAULT 'full',
           FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
         )
       ''');
     }
   }
 
-  // ==================== USER CRUD ====================
   Future<int> insertUser(User user) async {
     final db = await database;
     return await db.insert('User', user.toMap());
@@ -166,10 +139,11 @@ class SQLiteHelper {
     return await db.delete('User', where: 'User_ID = ?', whereArgs: [id]);
   }
 
-  // ==================== TASK CRUD ====================
   Future<int> insertTask(Task task) async {
     final db = await database;
-    return await db.insert('Task', task.toMap());
+    final data = task.toMap();
+    data.remove('Task_ID');
+    return await db.insert('Task', data);
   }
 
   Future<Task?> getTask(int id) async {
@@ -205,9 +179,11 @@ class SQLiteHelper {
 
   Future<int> updateTask(Task task) async {
     final db = await database;
+    final data = task.toMap();
+    data.remove('Task_ID');
     return await db.update(
       'Task',
-      task.toMap(),
+      data,
       where: 'Task_ID = ?',
       whereArgs: [task.id],
     );

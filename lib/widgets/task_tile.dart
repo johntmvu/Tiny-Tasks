@@ -1,79 +1,116 @@
+
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 
 class TaskTile extends StatelessWidget {
   final Task task;
-  final Function(bool?) onCheckboxChanged;
   final VoidCallback? onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
+  final ValueChanged<bool?>? onChanged;
 
   const TaskTile({
     super.key,
     required this.task,
-    required this.onCheckboxChanged,
     this.onTap,
-    required this.onEdit,
-    required this.onDelete,
+    this.onDelete,
+    this.onChanged,
   });
+
+  Color _periodColor() {
+    switch (task.period) {
+      case 'am':
+        return const Color(0xFFFFF3CD);
+      case 'pm':
+        return const Color(0xFFE3F2FD);
+      default:
+        return const Color(0xFFE8F5E9);
+    }
+  }
+
+  String _periodLabel() {
+    switch (task.period) {
+      case 'am':
+        return 'AM';
+      case 'pm':
+        return 'PM';
+      default:
+        return 'FULL DAY';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final description = task.description ?? '';
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         onTap: onTap,
         leading: Checkbox(
           value: task.isCompleted,
-          onChanged: onCheckboxChanged,
-          activeColor: Colors.black,
+          onChanged: onChanged,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(6),
+          ),
         ),
         title: Text(
           task.title,
           style: TextStyle(
-            fontWeight: FontWeight.w600,
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: task.isCompleted ? Colors.black45 : Colors.black87,
             decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-            color: task.isCompleted ? Colors.grey : Colors.black87,
           ),
         ),
-        subtitle: Text(
-          task.time,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-        ),
-        trailing: PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          onSelected: (value) {
-            if (value == 'edit') onEdit();
-            if (value == 'delete') onDelete();
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit, size: 18),
-                  SizedBox(width: 8),
-                  Text('Edit'),
-                ],
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (description.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                description,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: task.isCompleted ? Colors.black38 : Colors.black54,
+                ),
               ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, size: 18, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Delete', style: TextStyle(color: Colors.red)),
-                ],
+            ],
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _periodColor(),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                _periodLabel(),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],
         ),
+        trailing: onDelete != null
+            ? IconButton(
+                icon: const Icon(Icons.delete_outline_rounded),
+                onPressed: onDelete,
+              )
+            : null,
       ),
     );
   }

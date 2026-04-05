@@ -1,86 +1,117 @@
+
+
 class Task {
-  final String? id;
-  final int userId;
+  final int? id;
+  final int? userId;
+  final String? firebaseUserId;
   final String title;
+  final String? description;
+  final String date;
   final String time;
-  final String date; // stored as yyyy-MM-dd
   final bool isCompleted;
   final DateTime createdAt;
+  final String period;
 
   Task({
     this.id,
-    required this.userId,
+    this.userId,
+    this.firebaseUserId,
     required this.title,
-    required this.time,
+    this.description,
     required this.date,
+    this.time = '',
     this.isCompleted = false,
     DateTime? createdAt,
+    this.period = 'full',
   }) : createdAt = createdAt ?? DateTime.now();
+
+  Task copyWith({
+    int? id,
+    int? userId,
+    String? firebaseUserId,
+    String? title,
+    String? description,
+    String? date,
+    String? time,
+    bool? isCompleted,
+    DateTime? createdAt,
+    String? period,
+  }) {
+    return Task(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      firebaseUserId: firebaseUserId ?? this.firebaseUserId,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      date: date ?? this.date,
+      time: time ?? this.time,
+      isCompleted: isCompleted ?? this.isCompleted,
+      createdAt: createdAt ?? this.createdAt,
+      period: period ?? this.period,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
-      'Task_ID': id != null ? int.tryParse(id!) : null,
+      'Task_ID': id,
       'User_ID': userId,
       'Title': title,
       'Time': time,
       'Date': date,
       'Is_Completed': isCompleted ? 1 : 0,
       'Created_At': createdAt.toIso8601String(),
+      'Description': description,
+      'FirebaseUserId': firebaseUserId,
+      'Period': period,
     };
   }
 
   factory Task.fromMap(Map<String, dynamic> map) {
     return Task(
-      id: map['Task_ID']?.toString(),
-      userId: map['User_ID'] as int,
-      title: map['Title'] as String,
-      time: (map['Time'] as String?) ?? '',
-      date: (map['Date'] as String?) ?? '',
-      isCompleted: map['Is_Completed'] == 1,
-      createdAt: DateTime.parse(map['Created_At'] as String),
+      id: map['Task_ID'],
+      userId: map['User_ID'],
+      title: map['Title'] ?? '',
+      time: map['Time'] ?? '',
+      date: map['Date'] ?? '',
+      isCompleted:
+          (map['Is_Completed'] ?? 0) == 1 || map['Is_Completed'] == true,
+      createdAt: map['Created_At'] != null
+          ? DateTime.tryParse(map['Created_At']) ?? DateTime.now()
+          : DateTime.now(),
+      description: map['Description'],
+      firebaseUserId: map['FirebaseUserId'],
+      period: map['Period'] ?? 'full',
     );
   }
 
-  // Firestore
   Map<String, dynamic> toFirestore() {
     return {
+      'userId': userId,
+      'firebaseUserId': firebaseUserId,
       'title': title,
-      'time': time,
+      'description': description,
       'date': date,
+      'time': time,
       'isCompleted': isCompleted,
       'createdAt': createdAt,
+      'period': period,
     };
   }
 
-  factory Task.fromFirestore(String docId, Map<String, dynamic> data) {
+  factory Task.fromFirestore(String id, Map<String, dynamic> map) {
     return Task(
-      id: docId,
-      userId: 0, // not needed for Firestore
-      title: data['title'] ?? '',
-      time: data['time'] ?? '',
-      date: data['date'] ?? '',
-      isCompleted: data['isCompleted'] ?? false,
-      createdAt: (data['createdAt'] as dynamic).toDate(),
-    );
-  }
-
-  Task copyWith({
-    String? id,
-    int? userId,
-    String? title,
-    String? time,
-    String? date,
-    bool? isCompleted,
-    DateTime? createdAt,
-  }) {
-    return Task(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      title: title ?? this.title,
-      time: time ?? this.time,
-      date: date ?? this.date,
-      isCompleted: isCompleted ?? this.isCompleted,
-      createdAt: createdAt ?? this.createdAt,
+      id: int.tryParse(id),
+      userId: map['userId'],
+      firebaseUserId: map['firebaseUserId']?.toString(),
+      title: map['title'] ?? '',
+      description: map['description'],
+      date: map['date'] ?? '',
+      time: map['time'] ?? '',
+      isCompleted: map['isCompleted'] ?? false,
+      createdAt: map['createdAt'] != null
+          ? map['createdAt'].toDate()
+          : DateTime.now(),
+      period: map['period'] ?? 'full',
     );
   }
 }
