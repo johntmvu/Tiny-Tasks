@@ -15,11 +15,19 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _errorMessage = "";
+
   final _userRepository = UserRepository();
   final _taskRepository = TaskRepository();
 
+  String _errorMessage = "";
+  bool _isLoading = false;
+
   Future<void> signUp() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = "";
+    });
+
     try {
       final credential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
@@ -27,134 +35,266 @@ class _LoginPageState extends State<LoginPage> {
             password: _passwordController.text.trim(),
           );
 
-      // Create user record in SQLite
       final newUser = user_models.User(
-        name: _emailController.text.trim().split(
-          '@',
-        )[0], // Use email prefix as name
+        name: _emailController.text.trim().split('@')[0],
         email: _emailController.text.trim(),
       );
+
       final userId = await _userRepository.createUser(newUser);
 
       if (!mounted) return;
+
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) =>
-              TaskView(userId: userId, firebaseUserId: credential.user!.uid),
+          builder: (_) => TaskView(
+            userId: userId,
+            firebaseUserId: credential.user!.uid,
+          ),
         ),
       );
     } on FirebaseAuthException catch (e) {
-      setState(() {
-        _errorMessage = e.message ?? "Signup failed";
+        setState(() {
+          _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
       });
+      debugPrint("FirebaseAuthException: ${e.code} | ${e.message}");
     } catch (e) {
       setState(() {
         _errorMessage = "Error: $e";
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> signIn() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = "";
+    });
+
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Get user from SQLite by email
       final firebaseUid = FirebaseAuth.instance.currentUser!.uid;
+
       final user = await _userRepository.getUserByEmail(
         _emailController.text.trim(),
       );
+
       if (user == null) {
-        // User doesn't exist in SQLite, create it
         final newUser = user_models.User(
           name: _emailController.text.trim().split('@')[0],
           email: _emailController.text.trim(),
         );
+
         final userId = await _userRepository.createUser(newUser);
+
         await _taskRepository.syncFromFirestore(firebaseUid, userId);
+
         if (!mounted) return;
+
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) =>
-                TaskView(userId: userId, firebaseUserId: firebaseUid),
+            builder: (_) => TaskView(
+              userId: userId,
+              firebaseUserId: firebaseUid,
+            ),
           ),
         );
       } else {
         await _taskRepository.syncFromFirestore(firebaseUid, user.userId!);
+
         if (!mounted) return;
+
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) =>
-                TaskView(userId: user.userId!, firebaseUserId: firebaseUid),
+            builder: (_) => TaskView(
+              userId: user.userId!,
+              firebaseUserId: firebaseUid,
+            ),
           ),
         );
       }
-    } on FirebaseAuthException catch (e) {
-      setState(() {
-        _errorMessage = e.message ?? "Login failed";
-      });
-    } catch (e) {
+  } on FirebaseAuthException catch (e) {
+    setState(() {
+      _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
+    });
+    debugPrint("FirebaseAuthException: ${e.code} | ${e.message}");
+  } catch (e) {
       setState(() {
         _errorMessage = "Error: $e";
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon),
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF8ECFD8), width: 1.5),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Sign In",
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 24),
-
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: "Email",
-                  border: OutlineInputBorder(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 420),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFDFEFE),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: "Password",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              //Sign in button
-              ElevatedButton(
-                onPressed: signIn,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-                child: const Text("Sign In"),
-              ),
-              //Create account button
-              TextButton(
-                onPressed: signUp,
-                child: const Text("Create Account"),
-              ),
-
-              if (_errorMessage.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(_errorMessage, style: const TextStyle(color: Colors.red)),
               ],
-            ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD7EEF2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.checklist_rounded,
+                    size: 36,
+                    color: Color(0xFF1E5A67),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  "Tiny Tasks",
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Sign in to manage your day better",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: _inputDecoration("Email", Icons.email_outlined),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: _inputDecoration("Password", Icons.lock_outline),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : signIn,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD7EEF2),
+                      foregroundColor: const Color(0xFF1E5A67),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            "Sign In",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: _isLoading ? null : signUp,
+                  child: const Text(
+                    "Create Account",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (_errorMessage.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFEBEE),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Text(
+                      _errorMessage,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

@@ -12,19 +12,19 @@ class TaskRepository {
   CollectionReference _tasksCollection(String firebaseUserId) =>
       _firestore.collection('users').doc(firebaseUserId).collection('tasks');
 
-  // ==================== Combined CRUD (SQLite + Firestore) ====================
+  
 
-  /// Create task locally, then sync to Firestore.
-  /// Returns the SQLite row ID.
+
   Future<int> createTask(Task task, {String? firebaseUserId}) async {
     final sqliteId = await _dbHelper.insertTask(task);
 
     if (firebaseUserId != null) {
-      final taskWithId = task.copyWith(id: sqliteId.toString());
+      final taskWithId = task.copyWith(id: sqliteId);
       await _tasksCollection(
         firebaseUserId,
       ).doc(sqliteId.toString()).set(taskWithId.toFirestore());
     }
+
     return sqliteId;
   }
 
@@ -47,24 +47,25 @@ class TaskRepository {
     if (firebaseUserId != null && task.id != null) {
       await _tasksCollection(
         firebaseUserId,
-      ).doc(task.id).update(task.toFirestore());
+      ).doc(task.id.toString()).update(task.toFirestore());
     }
+
     return result;
   }
 
-  /// Delete task locally, then remove from Firestore.
+  
   Future<int> deleteTask(int id, {String? firebaseUserId}) async {
     final result = await _dbHelper.deleteTask(id);
 
     if (firebaseUserId != null) {
       await _tasksCollection(firebaseUserId).doc(id.toString()).delete();
     }
+
     return result;
   }
 
-  // ==================== Firestore-only methods ====================
+  
 
-  /// Real-time task stream from Firestore
   Stream<List<Task>> getTasksStream(String firebaseUserId) {
     return _tasksCollection(
       firebaseUserId,
@@ -75,8 +76,6 @@ class TaskRepository {
     });
   }
 
-  /// Pull all tasks from Firestore and merge into SQLite.
-  /// Existing local tasks (by ID) are skipped; new ones are inserted.
   Future<void> syncFromFirestore(String firebaseUserId, int localUserId) async {
     final snapshot = await _tasksCollection(firebaseUserId).get();
 
@@ -87,16 +86,21 @@ class TaskRepository {
       final existing = await _dbHelper.getTask(firestoreId);
       if (existing == null) {
         final data = doc.data() as Map<String, dynamic>;
+
         final task = Task(
-          id: doc.id,
+          id: firestoreId,
           userId: localUserId,
+          firebaseUserId: data['firebaseUserId']?.toString(),
           title: data['title'] ?? '',
+          description: data['description'],
           time: data['time'] ?? '',
           date: data['date'] ?? '',
           isCompleted: data['isCompleted'] ?? false,
           createdAt:
               (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          period: data['period'] ?? 'full',
         );
+
         await _dbHelper.insertTask(task);
       }
     }
