@@ -8,6 +8,7 @@ import '../services/gemini_service.dart';
 import '../widgets/task_tile.dart';
 import '../widgets/big_task_tile.dart';
 import 'settings_view.dart';
+import 'history_view.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
 class TaskView extends StatefulWidget {
@@ -31,6 +32,7 @@ class _TaskViewState extends State<TaskView> {
   List<BigTask> _bigTasks = [];
   Map<int, List<Task>> _tinyTasksByBigTask = {};
   bool _isLoadingBigTasks = false;
+  final Set<int> _recentlyCompleted = {};
 
   @override
   void initState() {
@@ -296,6 +298,16 @@ class _TaskViewState extends State<TaskView> {
         updatedTask,
         firebaseUserId: widget.firebaseUserId,
       );
+
+      if (value && task.id != null) {
+        setState(() => _recentlyCompleted.add(task.id!));
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _recentlyCompleted.remove(task.id!));
+        });
+      } else if (!value && task.id != null) {
+        setState(() => _recentlyCompleted.remove(task.id!));
+      }
+
       await _loadTasks();
     } catch (e) {
       debugPrint('Error updating task: $e');
@@ -1478,6 +1490,54 @@ class _TaskViewState extends State<TaskView> {
     );
   }
 
+  Widget _buildCompletedUndoCard(Task task) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F5E9),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF66BB6A), size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Task completed',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _toggleTask(task, false),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF1E5A67),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text(
+                'Undo',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTaskList() {
     if (_selectedPeriod == 'big') return _buildBigTaskList();
 
@@ -1485,7 +1545,13 @@ class _TaskViewState extends State<TaskView> {
       return const Expanded(child: Center(child: CircularProgressIndicator()));
     }
 
-    if (_filteredTasks.isEmpty) {
+    // Filter: show incomplete tasks + recently completed (undo card); hide the rest
+    final displayTasks = _filteredTasks.where((t) =>
+      !t.isCompleted ||
+      (t.id != null && _recentlyCompleted.contains(t.id!))
+    ).toList();
+
+    if (displayTasks.isEmpty) {
       return _buildEmptyState();
     }
 
@@ -1498,9 +1564,14 @@ class _TaskViewState extends State<TaskView> {
     return Expanded(
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 4, bottom: 12),
-        itemCount: _filteredTasks.length,
+        itemCount: displayTasks.length,
         itemBuilder: (context, index) {
-          final task = _filteredTasks[index];
+          final task = displayTasks[index];
+
+          if (task.isCompleted) {
+            return _buildCompletedUndoCard(task);
+          }
+
           Color? tileColor;
           if (task.bigTaskId != null) {
             final bt = bigTaskLookup[task.bigTaskId];
@@ -1560,6 +1631,19 @@ class _TaskViewState extends State<TaskView> {
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.history_rounded, color: Colors.black87),
+          onPressed: () {
+            if (widget.userId != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HistoryView(userId: widget.userId!, firebaseUserId: widget.firebaseUserId),
+                ),
+              ).then((_) => _loadTasks());
+            }
+          },
+        ),
         title: const Text(
           'Tiny Tasks',
           style: TextStyle(
