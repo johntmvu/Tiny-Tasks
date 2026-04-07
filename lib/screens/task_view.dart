@@ -33,6 +33,7 @@ class _TaskViewState extends State<TaskView> {
   Map<int, List<Task>> _tinyTasksByBigTask = {};
   bool _isLoadingBigTasks = false;
   final Set<int> _recentlyCompleted = {};
+  final List<({Task task, int index})> _recentlyDeleted = [];
 
   @override
   void initState() {
@@ -103,14 +104,22 @@ class _TaskViewState extends State<TaskView> {
     }
   }
 
-  Future<void> _deleteTask(Task task) async {
+  Future<void> _deleteTask(Task task, int displayIndex) async {
+    if (task.id == null) return;
+    final taskId = task.id!;
     try {
-      if (task.id != null) {
-        await _taskRepository.deleteTask(
-          task.id!,
-          firebaseUserId: widget.firebaseUserId,
-        );
+      await _taskRepository.deleteTask(
+        taskId,
+        firebaseUserId: widget.firebaseUserId,
+      );
+      if (mounted) {
+        setState(() => _recentlyDeleted.add((task: task, index: displayIndex)));
         await _loadTasks();
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) {
+            setState(() => _recentlyDeleted.removeWhere((e) => e.task.id == taskId));
+          }
+        });
       }
     } catch (e) {
       debugPrint('Error deleting task: $e');
@@ -118,6 +127,36 @@ class _TaskViewState extends State<TaskView> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to delete task: $e')));
+      }
+    }
+  }
+
+  Future<void> _undoDeleteTask(Task task) async {
+    setState(() => _recentlyDeleted.removeWhere((e) => e.task.id == task.id));
+    try {
+      await _taskRepository.createTask(
+        Task(
+          userId: task.userId,
+          firebaseUserId: task.firebaseUserId,
+          title: task.title,
+          description: task.description,
+          date: task.date,
+          time: task.time,
+          isCompleted: task.isCompleted,
+          createdAt: task.createdAt,
+          period: task.period,
+          bigTaskId: task.bigTaskId,
+          isRescheduled: task.isRescheduled,
+        ),
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
+    } catch (e) {
+      debugPrint('Error restoring task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to restore task: $e')));
       }
     }
   }
@@ -1538,6 +1577,55 @@ class _TaskViewState extends State<TaskView> {
     );
   }
 
+  Widget _buildDeletedUndoCard(Task task) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFEBEE),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded,
+                color: Color(0xFFE53935), size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '"${task.title}" deleted',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFB71C1C),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            TextButton(
+              onPressed: () => _undoDeleteTask(task),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFF1E5A67),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+              child: const Text(
+                'Undo',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTaskList() {
     if (_selectedPeriod == 'big') return _buildBigTaskList();
 
@@ -1551,8 +1639,21 @@ class _TaskViewState extends State<TaskView> {
       (t.id != null && _recentlyCompleted.contains(t.id!))
     ).toList();
 
-    if (displayTasks.isEmpty) {
+    if (displayTasks.isEmpty && _recentlyDeleted.isEmpty) {
       return _buildEmptyState();
+    }
+
+    // Build merged list: insert deleted undo cards at their original positions.
+    // Each entry is either a regular Task or a deleted-marker Task.
+    final List<({Task task, bool isDeleted})> combined = [
+      for (final t in displayTasks) (task: t, isDeleted: false),
+    ];
+    final sortedDeleted = List.of(_recentlyDeleted)
+      ..sort((a, b) => a.index.compareTo(b.index));
+    // Insert from highest index to lowest to avoid shifting earlier entries.
+    for (final entry in sortedDeleted.reversed) {
+      final idx = entry.index.clamp(0, combined.length);
+      combined.insert(idx, (task: entry.task, isDeleted: true));
     }
 
     // Build a lookup for big task colors
@@ -1564,9 +1665,15 @@ class _TaskViewState extends State<TaskView> {
     return Expanded(
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 4, bottom: 12),
-        itemCount: displayTasks.length,
+        itemCount: combined.length,
         itemBuilder: (context, index) {
-          final task = displayTasks[index];
+          final item = combined[index];
+
+          if (item.isDeleted) {
+            return _buildDeletedUndoCard(item.task);
+          }
+
+          final task = item.task;
 
           if (task.isCompleted) {
             return _buildCompletedUndoCard(task);
@@ -1598,7 +1705,7 @@ class _TaskViewState extends State<TaskView> {
                     ),
                   ),
                   SlidableAction(
-                    onPressed: (_) => _deleteTask(task),
+                    onPressed: (_) => _deleteTask(task, index),
                     backgroundColor: const Color(0xFFE53935),
                     foregroundColor: Colors.white,
                     icon: Icons.delete_outline_rounded,
