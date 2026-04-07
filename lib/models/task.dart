@@ -11,6 +11,8 @@ class Task {
   final bool isCompleted;
   final DateTime createdAt;
   final String period;
+  final int? bigTaskId;
+  final bool isRescheduled;
 
   Task({
     this.id,
@@ -23,6 +25,8 @@ class Task {
     this.isCompleted = false,
     DateTime? createdAt,
     this.period = 'full',
+    this.bigTaskId,
+    this.isRescheduled = false,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Task copyWith({
@@ -36,6 +40,8 @@ class Task {
     bool? isCompleted,
     DateTime? createdAt,
     String? period,
+    int? bigTaskId,
+    bool? isRescheduled,
   }) {
     return Task(
       id: id ?? this.id,
@@ -48,6 +54,8 @@ class Task {
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
       period: period ?? this.period,
+      bigTaskId: bigTaskId ?? this.bigTaskId,
+      isRescheduled: isRescheduled ?? this.isRescheduled,
     );
   }
 
@@ -63,6 +71,8 @@ class Task {
       'Description': description,
       'FirebaseUserId': firebaseUserId,
       'Period': period,
+      'BigTask_ID': bigTaskId,
+      'Is_Rescheduled': isRescheduled ? 1 : 0,
     };
   }
 
@@ -81,6 +91,8 @@ class Task {
       description: map['Description'],
       firebaseUserId: map['FirebaseUserId'],
       period: map['Period'] ?? 'full',
+      bigTaskId: map['BigTask_ID'] as int?,
+      isRescheduled: (map['Is_Rescheduled'] ?? 0) == 1,
     );
   }
 
@@ -95,6 +107,8 @@ class Task {
       'isCompleted': isCompleted,
       'createdAt': createdAt,
       'period': period,
+      'bigTaskId': bigTaskId,
+      'isRescheduled': isRescheduled,
     };
   }
 
@@ -112,6 +126,8 @@ class Task {
           ? map['createdAt'].toDate()
           : DateTime.now(),
       period: map['period'] ?? 'full',
+      bigTaskId: map['bigTaskId'] as int?,
+      isRescheduled: map['isRescheduled'] ?? false,
     );
   }
 }

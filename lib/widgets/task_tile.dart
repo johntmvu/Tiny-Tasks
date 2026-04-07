@@ -1,19 +1,20 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import '../models/task.dart';
 
 class TaskTile extends StatelessWidget {
   final Task task;
   final VoidCallback? onTap;
-  final VoidCallback? onDelete;
   final ValueChanged<bool?>? onChanged;
+  final Color? bigTaskColor;
 
   const TaskTile({
     super.key,
     required this.task,
     this.onTap,
-    this.onDelete,
     this.onChanged,
+    this.bigTaskColor,
   });
 
   Color _periodColor() {
@@ -43,10 +44,13 @@ class TaskTile extends StatelessWidget {
     final description = task.description ?? '';
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
+        border: bigTaskColor != null
+            ? Border(left: BorderSide(color: bigTaskColor!, width: 4))
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -88,29 +92,53 @@ class TaskTile extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: _periodColor(),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _periodLabel(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _periodColor(),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _periodLabel(),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
+                  ),
                 ),
-              ),
+                if (task.isRescheduled) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: task.bigTaskId != null
+                          ? const Color(0xFFE3F2FD)
+                          : const Color(0xFFFFEBEE),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      task.bigTaskId != null ? 'RESCHEDULED' : 'OVERDUE',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: task.bigTaskId != null
+                            ? const Color(0xFF1565C0)
+                            : const Color(0xFFC62828),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
-        trailing: onDelete != null
-            ? IconButton(
-                icon: const Icon(Icons.delete_outline_rounded),
-                onPressed: onDelete,
-              )
-            : null,
+        trailing: IconButton(
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.black45),
+          onPressed: () => Slidable.of(context)?.openEndActionPane(),
+        ),
       ),
     );
   }

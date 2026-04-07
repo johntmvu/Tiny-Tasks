@@ -12,7 +12,12 @@
           "package_name": "com.example.tinytasks"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "347861976641-7ad1lf6134v3u8dtsbnaiptneo65gh4h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAjv2cw9zC1Hm3YCKNJ5jDMUoPblv1uB60"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "347861976641-7ad1lf6134v3u8dtsbnaiptneo65gh4h.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "347861976641-a6cr2dfi49bml30qe3c8ji8pq25m1k7h.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.tinytasks"
+              }
+            }
+          ]
         }
       }
     }
