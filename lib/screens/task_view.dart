@@ -8,6 +8,7 @@ import '../services/gemini_service.dart';
 import '../widgets/task_tile.dart';
 import '../widgets/big_task_tile.dart';
 import 'settings_view.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 class TaskView extends StatefulWidget {
   final int? userId;
@@ -34,8 +35,10 @@ class _TaskViewState extends State<TaskView> {
   @override
   void initState() {
     super.initState();
-    _loadTasks();
-    _loadBigTasks();
+    _rescheduleOverdueTasks().then((_) {
+      _loadTasks();
+      _loadBigTasks();
+    });
   }
 
   String get _formattedDate =>
@@ -117,6 +120,175 @@ class _TaskViewState extends State<TaskView> {
     }
   }
 
+  Future<void> _editTask(Task task) async {
+    try {
+      await _taskRepository.updateTask(
+        task,
+        firebaseUserId: widget.firebaseUserId,
+      );
+      await _loadTasks();
+    } catch (e) {
+      debugPrint('Error editing task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update task: $e')),
+        );
+      }
+    }
+  }
+
+  void _showEditTaskDialog(Task task) {
+    final titleController = TextEditingController(text: task.title);
+    final descriptionController =
+        TextEditingController(text: task.description ?? '');
+    String selectedTaskPeriod = task.period;
+    TimeOfDay? selectedTime = _parseTimeOfDay(task.time);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Edit Task',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: StatefulBuilder(
+            builder: (context, setModalState) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: InputDecoration(
+                        labelText: 'Task Title',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Description',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    GestureDetector(
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime ?? TimeOfDay.now(),
+                        );
+                        if (picked != null) {
+                          setModalState(() {
+                            selectedTime = picked;
+                            selectedTaskPeriod = picked.hour < 12 ? 'am' : 'pm';
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black38),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time_rounded,
+                                size: 20, color: Colors.black54),
+                            const SizedBox(width: 10),
+                            Text(
+                              selectedTime != null
+                                  ? selectedTime!.format(context)
+                                  : 'Time (optional)',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: selectedTime != null
+                                    ? Colors.black87
+                                    : Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedTaskPeriod,
+                      decoration: InputDecoration(
+                        labelText: 'Time Slot',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'full', child: Text('Full Day')),
+                        DropdownMenuItem(value: 'am', child: Text('AM')),
+                        DropdownMenuItem(value: 'pm', child: Text('PM')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setModalState(() => selectedTaskPeriod = value);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD7EEF2),
+                foregroundColor: const Color(0xFF1E5A67),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              onPressed: () async {
+                final title = titleController.text.trim();
+                if (title.isEmpty) return;
+                Navigator.pop(context);
+                await _editTask(
+                  task.copyWith(
+                    title: title,
+                    description: descriptionController.text.trim().isEmpty
+                        ? null
+                        : descriptionController.text.trim(),
+                    time: selectedTime != null
+                        ? selectedTime!.format(context)
+                        : '',
+                    period: selectedTaskPeriod,
+                  ),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _toggleTask(Task task, bool value) async {
     try {
       final updatedTask = task.copyWith(isCompleted: value);
@@ -132,6 +304,50 @@ class _TaskViewState extends State<TaskView> {
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to update task: $e')));
       }
+    }
+  }
+
+  TimeOfDay? _parseTimeOfDay(String timeStr) {
+    if (timeStr.isEmpty) return null;
+    final amPm = RegExp(
+      r'(\d{1,2}):(\d{2})\s*(AM|PM)',
+      caseSensitive: false,
+    ).firstMatch(timeStr);
+    if (amPm != null) {
+      int hour = int.parse(amPm.group(1)!);
+      final minute = int.parse(amPm.group(2)!);
+      final isPm = amPm.group(3)!.toUpperCase() == 'PM';
+      if (isPm && hour != 12) hour += 12;
+      if (!isPm && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+    final h24 = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(timeStr);
+    if (h24 != null) {
+      return TimeOfDay(
+        hour: int.parse(h24.group(1)!),
+        minute: int.parse(h24.group(2)!),
+      );
+    }
+    return null;
+  }
+
+  Future<void> _rescheduleOverdueTasks() async {
+    if (widget.userId == null) return;
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    try {
+      final allTasks = await _taskRepository.getTasksByUser(widget.userId!);
+      for (final task in allTasks) {
+        if (!task.isCompleted &&
+            task.date.isNotEmpty &&
+            task.date.compareTo(today) < 0) {
+          await _taskRepository.updateTask(
+            task.copyWith(date: today, isRescheduled: true),
+            firebaseUserId: widget.firebaseUserId,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error rescheduling overdue tasks: $e');
     }
   }
 
@@ -190,6 +406,288 @@ class _TaskViewState extends State<TaskView> {
         );
       }
     }
+  }
+
+  void _showEditBigTaskDialog(BigTask bigTask) {
+    final titleController = TextEditingController(text: bigTask.title);
+    final descriptionController =
+        TextEditingController(text: bigTask.description ?? '');
+    String selectedPriority = bigTask.priority;
+    String selectedDueDate = bigTask.dueDate;
+    String selectedColor = bigTask.color;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Edit Big Task',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          content: StatefulBuilder(
+            builder: (context, setModalState) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: InputDecoration(
+                        labelText: 'Title',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: descriptionController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'Description (optional)',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: selectedPriority,
+                      decoration: InputDecoration(
+                        labelText: 'Priority',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'low', child: Text('Low')),
+                        DropdownMenuItem(
+                            value: 'medium', child: Text('Medium')),
+                        DropdownMenuItem(value: 'high', child: Text('High')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setModalState(() => selectedPriority = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    GestureDetector(
+                      onTap: () async {
+                        final now = DateTime.now();
+                        final initial =
+                            DateTime.tryParse(selectedDueDate) ??
+                                now.add(const Duration(days: 1));
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: initial.isBefore(now)
+                              ? now.add(const Duration(days: 1))
+                              : initial,
+                          firstDate: now,
+                          lastDate: now.add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setModalState(() {
+                            selectedDueDate =
+                                DateFormat('yyyy-MM-dd').format(picked);
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black38),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          'Due: $selectedDueDate',
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.black87),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Color',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: bigTaskColors.entries.map((entry) {
+                        final isSelected = selectedColor == entry.key;
+                        return GestureDetector(
+                          onTap: () => setModalState(
+                              () => selectedColor = entry.key),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: entry.value,
+                              shape: BoxShape.circle,
+                              border: isSelected
+                                  ? Border.all(
+                                      color: Colors.black54, width: 2)
+                                  : null,
+                            ),
+                            child: isSelected
+                                ? const Icon(Icons.check,
+                                    size: 18, color: Colors.black54)
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD7EEF2),
+                foregroundColor: const Color(0xFF1E5A67),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              onPressed: () async {
+                final title = titleController.text.trim();
+                if (title.isEmpty) return;
+                Navigator.pop(context);
+                try {
+                  await _bigTaskRepository.updateBigTask(
+                    bigTask.copyWith(
+                      title: title,
+                      description:
+                          descriptionController.text.trim().isEmpty
+                              ? null
+                              : descriptionController.text.trim(),
+                      priority: selectedPriority,
+                      dueDate: selectedDueDate,
+                      color: selectedColor,
+                    ),
+                    firebaseUserId: widget.firebaseUserId,
+                  );
+                  await _loadBigTasks();
+                } catch (e) {
+                  debugPrint('Error updating big task: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text('Failed to update big task: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showEditTinyTaskDialog(Task task) {
+    final titleController = TextEditingController(text: task.title);
+    String selectedDate = task.date;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Edit Subtask',
+              style: TextStyle(fontWeight: FontWeight.w700)),
+          content: StatefulBuilder(
+            builder: (context, setModalState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Title',
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  GestureDetector(
+                    onTap: () async {
+                      final now = DateTime.now();
+                      final initial =
+                          DateTime.tryParse(selectedDate) ?? now;
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            initial.isBefore(now) ? now : initial,
+                        firstDate: now,
+                        lastDate: now.add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setModalState(() {
+                          selectedDate =
+                              DateFormat('yyyy-MM-dd').format(picked);
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black38),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        'Date: $selectedDate',
+                        style: const TextStyle(
+                            fontSize: 16, color: Colors.black87),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD7EEF2),
+                foregroundColor: const Color(0xFF1E5A67),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              onPressed: () async {
+                final title = titleController.text.trim();
+                if (title.isEmpty) return;
+                Navigator.pop(context);
+                await _editTask(
+                    task.copyWith(title: title, date: selectedDate));
+                await _loadBigTasks();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showAddBigTaskDialog() {
@@ -669,9 +1167,10 @@ class _TaskViewState extends State<TaskView> {
             tinyTasks: _tinyTasksByBigTask[bigTask.id] ?? [],
             onTinyTaskToggle: (task) {
               _toggleTask(task, !task.isCompleted);
-              // Refresh big task list to update completion fraction
               Future.delayed(const Duration(milliseconds: 300), _loadBigTasks);
             },
+            onTinyTaskEdit: (task) => _showEditTinyTaskDialog(task),
+            onEdit: () => _showEditBigTaskDialog(bigTask),
             onDelete: () => _deleteBigTask(bigTask),
           );
         },
@@ -696,8 +1195,8 @@ class _TaskViewState extends State<TaskView> {
   void _showAddTaskDialog() {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    final timeController = TextEditingController();
-    String selectedTaskPeriod = _selectedPeriod;
+    String selectedTaskPeriod = _selectedPeriod == 'big' ? 'full' : _selectedPeriod;
+    TimeOfDay? selectedTime;
 
     showDialog(
       context: context,
@@ -738,18 +1237,50 @@ class _TaskViewState extends State<TaskView> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    TextField(
-                      controller: timeController,
-                      decoration: InputDecoration(
-                        labelText: 'Time (optional)',
-                        border: OutlineInputBorder(
+                    GestureDetector(
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: selectedTime ?? TimeOfDay.now(),
+                        );
+                        if (picked != null) {
+                          setModalState(() {
+                            selectedTime = picked;
+                            selectedTaskPeriod = picked.hour < 12 ? 'am' : 'pm';
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black38),
                           borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.access_time_rounded,
+                                size: 20, color: Colors.black54),
+                            const SizedBox(width: 10),
+                            Text(
+                              selectedTime != null
+                                  ? selectedTime!.format(context)
+                                  : 'Time (optional)',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: selectedTime != null
+                                    ? Colors.black87
+                                    : Colors.black54,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      initialValue: selectedTaskPeriod,
+                      value: selectedTaskPeriod,
                       decoration: InputDecoration(
                         labelText: 'Time Slot',
                         border: OutlineInputBorder(
@@ -794,8 +1325,6 @@ class _TaskViewState extends State<TaskView> {
               onPressed: () async {
                 final title = titleController.text.trim();
                 final description = descriptionController.text.trim();
-                final time = timeController.text.trim();
-
                 if (title.isEmpty) return;
 
                 final newTask = Task(
@@ -804,7 +1333,9 @@ class _TaskViewState extends State<TaskView> {
                   title: title,
                   description: description.isEmpty ? null : description,
                   date: _dateKey,
-                  time: time,
+                  time: selectedTime != null
+                      ? selectedTime!.format(context)
+                      : '',
                   isCompleted: false,
                   period: selectedTaskPeriod,
                 );
@@ -977,15 +1508,44 @@ class _TaskViewState extends State<TaskView> {
               tileColor = bigTaskColors[bt.color];
             }
           }
-          return TaskTile(
-            task: task,
-            bigTaskColor: tileColor,
-            onChanged: (value) {
-              _toggleTask(task, value ?? false);
-            },
-            onDelete: () {
-              _deleteTask(task);
-            },
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Slidable(
+              key: ValueKey(task.id),
+              endActionPane: ActionPane(
+                motion: const DrawerMotion(),
+                extentRatio: 0.4,
+                children: [
+                  SlidableAction(
+                    onPressed: (_) => _showEditTaskDialog(task),
+                    backgroundColor: const Color(0xFF4CAF50),
+                    foregroundColor: Colors.white,
+                    icon: Icons.edit_outlined,
+                    label: 'Edit',
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(18),
+                    ),
+                  ),
+                  SlidableAction(
+                    onPressed: (_) => _deleteTask(task),
+                    backgroundColor: const Color(0xFFE53935),
+                    foregroundColor: Colors.white,
+                    icon: Icons.delete_outline_rounded,
+                    label: 'Delete',
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(18),
+                    ),
+                  ),
+                ],
+              ),
+              child: TaskTile(
+                task: task,
+                bigTaskColor: tileColor,
+                onChanged: (value) {
+                  _toggleTask(task, value ?? false);
+                },
+              ),
+            ),
           );
         },
       ),

@@ -19,6 +19,7 @@ class BigTaskTile extends StatefulWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onEdit;
   final ValueChanged<Task>? onTinyTaskToggle;
+  final ValueChanged<Task>? onTinyTaskEdit;
 
   const BigTaskTile({
     super.key,
@@ -27,6 +28,7 @@ class BigTaskTile extends StatefulWidget {
     this.onDelete,
     this.onEdit,
     this.onTinyTaskToggle,
+    this.onTinyTaskEdit,
   });
 
   @override
@@ -192,6 +194,14 @@ class _BigTaskTileState extends State<BigTaskTile> {
                             ),
                           ),
                         ),
+                        if (widget.onTinyTaskEdit != null)
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined,
+                                size: 16, color: Colors.black38),
+                            padding: const EdgeInsets.only(left: 4),
+                            constraints: const BoxConstraints(),
+                            onPressed: () => widget.onTinyTaskEdit!(task),
+                          ),
                       ],
                     ),
                   );

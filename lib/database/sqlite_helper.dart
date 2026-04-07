@@ -35,7 +35,7 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -90,6 +90,7 @@ class SQLiteHelper {
         FirebaseUserId TEXT,
         Period TEXT NOT NULL DEFAULT 'full',
         BigTask_ID INTEGER REFERENCES BigTask (BigTask_ID) ON DELETE SET NULL,
+        Is_Rescheduled INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
       )
     ''');
@@ -133,6 +134,11 @@ class SQLiteHelper {
       ''');
       await db.execute(
         'ALTER TABLE Task ADD COLUMN BigTask_ID INTEGER REFERENCES BigTask (BigTask_ID) ON DELETE SET NULL',
+      );
+    }
+    if (oldVersion < 7) {
+      await db.execute(
+        'ALTER TABLE Task ADD COLUMN Is_Rescheduled INTEGER NOT NULL DEFAULT 0',
       );
     }
   }
