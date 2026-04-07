@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/user.dart';
 import '../models/task.dart';
+import '../models/big_task.dart';
 
 class SQLiteHelper {
   static final SQLiteHelper instance = SQLiteHelper._init();
@@ -34,7 +35,7 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -62,6 +63,21 @@ class SQLiteHelper {
     ''');
 
     await db.execute('''
+      CREATE TABLE BigTask (
+        BigTask_ID $idType,
+        User_ID $integerType,
+        Title $textType,
+        Description TEXT,
+        Priority TEXT NOT NULL DEFAULT 'medium',
+        Due_Date $textType,
+        Color TEXT NOT NULL DEFAULT 'blue',
+        Created_At $textType,
+        FirebaseUserId TEXT,
+        FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE Task (
         Task_ID $idType,
         User_ID $integerType,
@@ -73,6 +89,7 @@ class SQLiteHelper {
         Description TEXT,
         FirebaseUserId TEXT,
         Period TEXT NOT NULL DEFAULT 'full',
+        BigTask_ID INTEGER REFERENCES BigTask (BigTask_ID) ON DELETE SET NULL,
         FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
       )
     ''');
@@ -98,6 +115,25 @@ class SQLiteHelper {
           FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
         )
       ''');
+    }
+    if (oldVersion < 6) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS BigTask (
+          BigTask_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          User_ID INTEGER NOT NULL,
+          Title TEXT NOT NULL,
+          Description TEXT,
+          Priority TEXT NOT NULL DEFAULT 'medium',
+          Due_Date TEXT NOT NULL,
+          Color TEXT NOT NULL DEFAULT 'blue',
+          Created_At TEXT NOT NULL,
+          FirebaseUserId TEXT,
+          FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute(
+        'ALTER TABLE Task ADD COLUMN BigTask_ID INTEGER REFERENCES BigTask (BigTask_ID) ON DELETE SET NULL',
+      );
     }
   }
 
@@ -192,6 +228,65 @@ class SQLiteHelper {
   Future<int> deleteTask(int id) async {
     final db = await database;
     return await db.delete('Task', where: 'Task_ID = ?', whereArgs: [id]);
+  }
+
+  Future<List<Task>> getTasksByBigTask(int bigTaskId) async {
+    final db = await database;
+    final maps = await db.query(
+      'Task',
+      where: 'BigTask_ID = ?',
+      whereArgs: [bigTaskId],
+      orderBy: 'Date ASC',
+    );
+    return maps.map((map) => Task.fromMap(map)).toList();
+  }
+
+  Future<int> insertBigTask(BigTask bigTask) async {
+    final db = await database;
+    final data = bigTask.toMap();
+    data.remove('BigTask_ID');
+    return await db.insert('BigTask', data);
+  }
+
+  Future<BigTask?> getBigTask(int id) async {
+    final db = await database;
+    final maps = await db.query(
+      'BigTask',
+      where: 'BigTask_ID = ?',
+      whereArgs: [id],
+    );
+    if (maps.isNotEmpty) {
+      return BigTask.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  Future<List<BigTask>> getBigTasksByUser(int userId) async {
+    final db = await database;
+    final maps = await db.query(
+      'BigTask',
+      where: 'User_ID = ?',
+      whereArgs: [userId],
+      orderBy: 'Due_Date ASC',
+    );
+    return maps.map((map) => BigTask.fromMap(map)).toList();
+  }
+
+  Future<int> updateBigTask(BigTask bigTask) async {
+    final db = await database;
+    final data = bigTask.toMap();
+    data.remove('BigTask_ID');
+    return await db.update(
+      'BigTask',
+      data,
+      where: 'BigTask_ID = ?',
+      whereArgs: [bigTask.id],
+    );
+  }
+
+  Future<int> deleteBigTask(int id) async {
+    final db = await database;
+    return await db.delete('BigTask', where: 'BigTask_ID = ?', whereArgs: [id]);
   }
 
   Future<void> close() async {

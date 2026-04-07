@@ -4,7 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaskRepository {
   final SQLiteHelper _dbHelper;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore? _firestoreInstance;
+  FirebaseFirestore get _firestore =>
+      _firestoreInstance ??= FirebaseFirestore.instance;
 
   TaskRepository({SQLiteHelper? dbHelper})
     : _dbHelper = dbHelper ?? SQLiteHelper.instance;

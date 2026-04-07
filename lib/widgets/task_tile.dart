@@ -7,6 +7,7 @@ class TaskTile extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
   final ValueChanged<bool?>? onChanged;
+  final Color? bigTaskColor;
 
   const TaskTile({
     super.key,
@@ -14,6 +15,7 @@ class TaskTile extends StatelessWidget {
     this.onTap,
     this.onDelete,
     this.onChanged,
+    this.bigTaskColor,
   });
 
   Color _periodColor() {
@@ -47,6 +49,9 @@ class TaskTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
+        border: bigTaskColor != null
+            ? Border(left: BorderSide(color: bigTaskColor!, width: 4))
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),

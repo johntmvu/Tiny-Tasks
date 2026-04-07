@@ -11,6 +11,7 @@ class Task {
   final bool isCompleted;
   final DateTime createdAt;
   final String period;
+  final int? bigTaskId;
 
   Task({
     this.id,
@@ -23,6 +24,7 @@ class Task {
     this.isCompleted = false,
     DateTime? createdAt,
     this.period = 'full',
+    this.bigTaskId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Task copyWith({
@@ -36,6 +38,7 @@ class Task {
     bool? isCompleted,
     DateTime? createdAt,
     String? period,
+    int? bigTaskId,
   }) {
     return Task(
       id: id ?? this.id,
@@ -48,6 +51,7 @@ class Task {
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
       period: period ?? this.period,
+      bigTaskId: bigTaskId ?? this.bigTaskId,
     );
   }
 
@@ -63,6 +67,7 @@ class Task {
       'Description': description,
       'FirebaseUserId': firebaseUserId,
       'Period': period,
+      'BigTask_ID': bigTaskId,
     };
   }
 
@@ -81,6 +86,7 @@ class Task {
       description: map['Description'],
       firebaseUserId: map['FirebaseUserId'],
       period: map['Period'] ?? 'full',
+      bigTaskId: map['BigTask_ID'] as int?,
     );
   }
 
@@ -95,6 +101,7 @@ class Task {
       'isCompleted': isCompleted,
       'createdAt': createdAt,
       'period': period,
+      'bigTaskId': bigTaskId,
     };
   }
 
@@ -112,6 +119,7 @@ class Task {
           ? map['createdAt'].toDate()
           : DateTime.now(),
       period: map['period'] ?? 'full',
+      bigTaskId: map['bigTaskId'] as int?,
     );
   }
 }
