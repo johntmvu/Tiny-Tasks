@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../models/task.dart';
@@ -42,18 +41,20 @@ class TaskTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final description = task.description ?? '';
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(18),
         border: bigTaskColor != null
             ? Border(left: BorderSide(color: bigTaskColor!, width: 4))
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(isDark ? 0.18 : 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -74,7 +75,9 @@ class TaskTile extends StatelessWidget {
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: task.isCompleted ? Colors.black45 : Colors.black87,
+            color: task.isCompleted
+                ? theme.colorScheme.onSurfaceVariant
+                : theme.colorScheme.onSurface,
             decoration: task.isCompleted ? TextDecoration.lineThrough : null,
           ),
         ),
@@ -87,11 +90,14 @@ class TaskTile extends StatelessWidget {
                 description,
                 style: TextStyle(
                   fontSize: 14,
-                  color: task.isCompleted ? Colors.black38 : Colors.black54,
+                  color: task.isCompleted
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
             const SizedBox(height: 10),
+
             Row(
               children: [
                 Container(
@@ -136,7 +142,10 @@ class TaskTile extends StatelessWidget {
           ],
         ),
         trailing: IconButton(
-          icon: const Icon(Icons.more_vert_rounded, color: Colors.black45),
+          icon: Icon(
+            Icons.more_vert_rounded,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           onPressed: () => Slidable.of(context)?.openEndActionPane(),
         ),
       ),
