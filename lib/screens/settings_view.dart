@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'profile_view.dart';
+import '../main.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -11,7 +12,6 @@ class SettingsView extends StatefulWidget {
 
 class _SettingsViewState extends State<SettingsView> {
   bool notifications = true;
-  bool darkMode = false;
   bool haptics = true;
 
   @override
@@ -63,10 +63,18 @@ class _SettingsViewState extends State<SettingsView> {
             onChanged: (val) => setState(() => notifications = val),
           ),
 
-          SwitchListTile(
-            title: const Text("Dark Mode"),
-            value: darkMode,
-            onChanged: (val) => setState(() => darkMode = val),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: themeNotifier,
+            builder: (context, currentTheme, child) {
+              return SwitchListTile(
+                title: const Text("Dark Mode"),
+                value: currentTheme == ThemeMode.dark,
+                onChanged: (val) {
+                  themeNotifier.value =
+                      val ? ThemeMode.dark : ThemeMode.light;
+                },
+              );
+            },
           ),
 
           SwitchListTile(

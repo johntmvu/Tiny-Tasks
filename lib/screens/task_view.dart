@@ -17,7 +17,12 @@ class TaskView extends StatefulWidget {
   final String? firebaseUserId;
   final String? accessToken;
 
-  const TaskView({super.key, this.userId, this.firebaseUserId, this.accessToken});
+  const TaskView({
+    super.key,
+    this.userId,
+    this.firebaseUserId,
+    this.accessToken,
+  });
 
   @override
   State<TaskView> createState() => _TaskViewState();
@@ -46,8 +51,7 @@ class _TaskViewState extends State<TaskView> {
     });
   }
 
-  String get _formattedDate =>
-      DateFormat('EEE, MMM d, y').format(_selectedDate);
+  String get _formattedDate => DateFormat('EEE, MMM d, y').format(_selectedDate);
   String get _dateKey => DateFormat('yyyy-MM-dd').format(_selectedDate);
 
   List<Task> get _filteredTasks {
@@ -56,6 +60,13 @@ class _TaskViewState extends State<TaskView> {
     }
     return _tasks.where((task) => task.period == _selectedPeriod).toList();
   }
+
+  Color get _surfaceColor => Theme.of(context).colorScheme.surface;
+  Color get _onSurfaceColor => Theme.of(context).colorScheme.onSurface;
+  Color get _mutedTextColor => Theme.of(context).colorScheme.onSurfaceVariant;
+  Color get _cardColor => Theme.of(context).cardColor;
+  Color get _softSurfaceColor => Theme.of(context).colorScheme.surfaceContainerHighest;
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
 
   Future<void> _loadTasks() async {
     if (widget.userId == null) return;
@@ -90,35 +101,34 @@ class _TaskViewState extends State<TaskView> {
   }
 
   Future<void> _addTask(Task task) async {
-  try {
-    await _taskRepository.createTask(
-      task,
-      firebaseUserId: widget.firebaseUserId,
-    );
-
-    // ✅ FIXED: safe calendar call
     try {
-      if (widget.accessToken != null) {
-        await GoogleCalendarService().createEvent(
-          accessToken: widget.accessToken!,
-          title: task.title,
-          date: task.date,
+      await _taskRepository.createTask(
+        task,
+        firebaseUserId: widget.firebaseUserId,
+      );
+
+      try {
+        if (widget.accessToken != null) {
+          await GoogleCalendarService().createEvent(
+            accessToken: widget.accessToken!,
+            title: task.title,
+            date: task.date,
+          );
+        }
+      } catch (e) {
+        debugPrint("Calendar sync failed: $e");
+      }
+
+      await _loadTasks();
+    } catch (e) {
+      debugPrint('Error adding task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add task: $e')),
         );
       }
-    } catch (e) {
-      debugPrint("Calendar sync failed: $e");
-    }
-
-    await _loadTasks();
-  } catch (e) {
-    debugPrint('Error adding task: $e');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add task: $e')),
-      );
     }
   }
-}
 
   Future<void> _deleteTask(Task task, int displayIndex) async {
     if (task.id == null) return;
@@ -196,8 +206,7 @@ class _TaskViewState extends State<TaskView> {
 
   void _showEditTaskDialog(Task task) {
     final titleController = TextEditingController(text: task.title);
-    final descriptionController =
-        TextEditingController(text: task.description ?? '');
+    final descriptionController = TextEditingController(text: task.description ?? '');
     String selectedTaskPeriod = task.period;
     TimeOfDay? selectedTime = _parseTimeOfDay(task.time);
 
@@ -205,7 +214,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -255,16 +263,18 @@ class _TaskViewState extends State<TaskView> {
                       },
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black38),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.access_time_rounded,
-                                size: 20, color: Colors.black54),
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 20,
+                              color: _mutedTextColor,
+                            ),
                             const SizedBox(width: 10),
                             Text(
                               selectedTime != null
@@ -272,9 +282,7 @@ class _TaskViewState extends State<TaskView> {
                                   : 'Time (optional)',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: selectedTime != null
-                                    ? Colors.black87
-                                    : Colors.black54,
+                                color: selectedTime != null ? _onSurfaceColor : _mutedTextColor,
                               ),
                             ),
                           ],
@@ -291,8 +299,7 @@ class _TaskViewState extends State<TaskView> {
                         ),
                       ),
                       items: const [
-                        DropdownMenuItem(
-                            value: 'full', child: Text('Full Day')),
+                        DropdownMenuItem(value: 'full', child: Text('Full Day')),
                         DropdownMenuItem(value: 'am', child: Text('AM')),
                         DropdownMenuItem(value: 'pm', child: Text('PM')),
                       ],
@@ -331,9 +338,7 @@ class _TaskViewState extends State<TaskView> {
                     description: descriptionController.text.trim().isEmpty
                         ? null
                         : descriptionController.text.trim(),
-                    time: selectedTime != null
-                        ? selectedTime!.format(context)
-                        : '',
+                    time: selectedTime != null ? selectedTime!.format(context) : '',
                     period: selectedTaskPeriod,
                   ),
                 );
@@ -426,14 +431,12 @@ class _TaskViewState extends State<TaskView> {
     });
 
     try {
-      final bigTasks = await _bigTaskRepository.getBigTasksByUser(
-        widget.userId!,
-      );
+      final bigTasks = await _bigTaskRepository.getBigTasksByUser(widget.userId!);
       final tinyTasksMap = <int, List<Task>>{};
       for (final bigTask in bigTasks) {
         if (bigTask.id != null) {
-          tinyTasksMap[bigTask.id!] = await _bigTaskRepository
-              .getTinyTasksForBigTask(bigTask.id!);
+          tinyTasksMap[bigTask.id!] =
+              await _bigTaskRepository.getTinyTasksForBigTask(bigTask.id!);
         }
       }
       setState(() {
@@ -477,8 +480,7 @@ class _TaskViewState extends State<TaskView> {
 
   void _showEditBigTaskDialog(BigTask bigTask) {
     final titleController = TextEditingController(text: bigTask.title);
-    final descriptionController =
-        TextEditingController(text: bigTask.description ?? '');
+    final descriptionController = TextEditingController(text: bigTask.description ?? '');
     String selectedPriority = bigTask.priority;
     String selectedDueDate = bigTask.dueDate;
     String selectedColor = bigTask.color;
@@ -487,11 +489,11 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Edit Big Task',
-              style: TextStyle(fontWeight: FontWeight.w700)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Edit Big Task',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
           content: StatefulBuilder(
             builder: (context, setModalState) {
               return SingleChildScrollView(
@@ -504,7 +506,8 @@ class _TaskViewState extends State<TaskView> {
                       decoration: InputDecoration(
                         labelText: 'Title',
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -514,7 +517,8 @@ class _TaskViewState extends State<TaskView> {
                       decoration: InputDecoration(
                         labelText: 'Description (optional)',
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -523,12 +527,12 @@ class _TaskViewState extends State<TaskView> {
                       decoration: InputDecoration(
                         labelText: 'Priority',
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                       items: const [
                         DropdownMenuItem(value: 'low', child: Text('Low')),
-                        DropdownMenuItem(
-                            value: 'medium', child: Text('Medium')),
+                        DropdownMenuItem(value: 'medium', child: Text('Medium')),
                         DropdownMenuItem(value: 'high', child: Text('High')),
                       ],
                       onChanged: (value) {
@@ -542,8 +546,7 @@ class _TaskViewState extends State<TaskView> {
                       onTap: () async {
                         final now = DateTime.now();
                         final initial =
-                            DateTime.tryParse(selectedDueDate) ??
-                                now.add(const Duration(days: 1));
+                            DateTime.tryParse(selectedDueDate) ?? now.add(const Duration(days: 1));
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: initial.isBefore(now)
@@ -554,32 +557,32 @@ class _TaskViewState extends State<TaskView> {
                         );
                         if (picked != null) {
                           setModalState(() {
-                            selectedDueDate =
-                                DateFormat('yyyy-MM-dd').format(picked);
+                            selectedDueDate = DateFormat('yyyy-MM-dd').format(picked);
                           });
                         }
                       },
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black38),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(
                           'Due: $selectedDueDate',
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.black87),
+                          style: TextStyle(fontSize: 16, color: _onSurfaceColor),
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text('Color',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87)),
+                    Text(
+                      'Color',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: _onSurfaceColor,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -587,8 +590,7 @@ class _TaskViewState extends State<TaskView> {
                       children: bigTaskColors.entries.map((entry) {
                         final isSelected = selectedColor == entry.key;
                         return GestureDetector(
-                          onTap: () => setModalState(
-                              () => selectedColor = entry.key),
+                          onTap: () => setModalState(() => selectedColor = entry.key),
                           child: Container(
                             width: 36,
                             height: 36,
@@ -596,13 +598,11 @@ class _TaskViewState extends State<TaskView> {
                               color: entry.value,
                               shape: BoxShape.circle,
                               border: isSelected
-                                  ? Border.all(
-                                      color: Colors.black54, width: 2)
+                                  ? Border.all(color: _onSurfaceColor, width: 2)
                                   : null,
                             ),
                             child: isSelected
-                                ? const Icon(Icons.check,
-                                    size: 18, color: Colors.black54)
+                                ? Icon(Icons.check, size: 18, color: _onSurfaceColor)
                                 : null,
                           ),
                         );
@@ -623,7 +623,8 @@ class _TaskViewState extends State<TaskView> {
                 backgroundColor: const Color(0xFFD7EEF2),
                 foregroundColor: const Color(0xFF1E5A67),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 0,
               ),
               onPressed: () async {
@@ -634,10 +635,9 @@ class _TaskViewState extends State<TaskView> {
                   await _bigTaskRepository.updateBigTask(
                     bigTask.copyWith(
                       title: title,
-                      description:
-                          descriptionController.text.trim().isEmpty
-                              ? null
-                              : descriptionController.text.trim(),
+                      description: descriptionController.text.trim().isEmpty
+                          ? null
+                          : descriptionController.text.trim(),
                       priority: selectedPriority,
                       dueDate: selectedDueDate,
                       color: selectedColor,
@@ -649,8 +649,7 @@ class _TaskViewState extends State<TaskView> {
                   debugPrint('Error updating big task: $e');
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text('Failed to update big task: $e')),
+                      SnackBar(content: Text('Failed to update big task: $e')),
                     );
                   }
                 }
@@ -671,11 +670,11 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Edit Subtask',
-              style: TextStyle(fontWeight: FontWeight.w700)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Edit Subtask',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
           content: StatefulBuilder(
             builder: (context, setModalState) {
               return Column(
@@ -686,41 +685,37 @@ class _TaskViewState extends State<TaskView> {
                     decoration: InputDecoration(
                       labelText: 'Title',
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
                   GestureDetector(
                     onTap: () async {
                       final now = DateTime.now();
-                      final initial =
-                          DateTime.tryParse(selectedDate) ?? now;
+                      final initial = DateTime.tryParse(selectedDate) ?? now;
                       final picked = await showDatePicker(
                         context: context,
-                        initialDate:
-                            initial.isBefore(now) ? now : initial,
+                        initialDate: initial.isBefore(now) ? now : initial,
                         firstDate: now,
                         lastDate: now.add(const Duration(days: 365)),
                       );
                       if (picked != null) {
                         setModalState(() {
-                          selectedDate =
-                              DateFormat('yyyy-MM-dd').format(picked);
+                          selectedDate = DateFormat('yyyy-MM-dd').format(picked);
                         });
                       }
                     },
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black38),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
                         'Date: $selectedDate',
-                        style: const TextStyle(
-                            fontSize: 16, color: Colors.black87),
+                        style: TextStyle(fontSize: 16, color: _onSurfaceColor),
                       ),
                     ),
                   ),
@@ -738,15 +733,15 @@ class _TaskViewState extends State<TaskView> {
                 backgroundColor: const Color(0xFFD7EEF2),
                 foregroundColor: const Color(0xFF1E5A67),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 0,
               ),
               onPressed: () async {
                 final title = titleController.text.trim();
                 if (title.isEmpty) return;
                 Navigator.pop(context);
-                await _editTask(
-                    task.copyWith(title: title, date: selectedDate));
+                await _editTask(task.copyWith(title: title, date: selectedDate));
                 await _loadBigTasks();
               },
               child: const Text('Save'),
@@ -768,7 +763,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -814,10 +808,7 @@ class _TaskViewState extends State<TaskView> {
                       ),
                       items: const [
                         DropdownMenuItem(value: 'low', child: Text('Low')),
-                        DropdownMenuItem(
-                          value: 'medium',
-                          child: Text('Medium'),
-                        ),
+                        DropdownMenuItem(value: 'medium', child: Text('Medium')),
                         DropdownMenuItem(value: 'high', child: Text('High')),
                       ],
                       onChanged: (value) {
@@ -838,42 +829,33 @@ class _TaskViewState extends State<TaskView> {
                         );
                         if (picked != null) {
                           setModalState(() {
-                            selectedDueDate = DateFormat(
-                              'yyyy-MM-dd',
-                            ).format(picked);
+                            selectedDueDate = DateFormat('yyyy-MM-dd').format(picked);
                           });
                         }
                       },
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black38),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(
-                          selectedDueDate != null
-                              ? 'Due: $selectedDueDate'
-                              : 'Select due date',
+                          selectedDueDate != null ? 'Due: $selectedDueDate' : 'Select due date',
                           style: TextStyle(
-                            color: selectedDueDate != null
-                                ? Colors.black87
-                                : Colors.black54,
+                            color: selectedDueDate != null ? _onSurfaceColor : _mutedTextColor,
                             fontSize: 16,
                           ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Text(
+                    Text(
                       'Color',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: _onSurfaceColor,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -883,8 +865,7 @@ class _TaskViewState extends State<TaskView> {
                       children: bigTaskColors.entries.map((entry) {
                         final isSelected = selectedColor == entry.key;
                         return GestureDetector(
-                          onTap: () =>
-                              setModalState(() => selectedColor = entry.key),
+                          onTap: () => setModalState(() => selectedColor = entry.key),
                           child: Container(
                             width: 36,
                             height: 36,
@@ -892,15 +873,11 @@ class _TaskViewState extends State<TaskView> {
                               color: entry.value,
                               shape: BoxShape.circle,
                               border: isSelected
-                                  ? Border.all(color: Colors.black54, width: 2)
+                                  ? Border.all(color: _onSurfaceColor, width: 2)
                                   : null,
                             ),
                             child: isSelected
-                                ? const Icon(
-                                    Icons.check,
-                                    size: 18,
-                                    color: Colors.black54,
-                                  )
+                                ? Icon(Icons.check, size: 18, color: _onSurfaceColor)
                                 : null,
                           ),
                         );
@@ -984,7 +961,6 @@ class _TaskViewState extends State<TaskView> {
 
     if (!mounted) return;
 
-    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1011,7 +987,7 @@ class _TaskViewState extends State<TaskView> {
     } catch (e) {
       debugPrint('Gemini error: $e');
       if (mounted) {
-        Navigator.pop(context); // dismiss loading
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('AI decomposition failed. Big task was saved without subtasks.'),
@@ -1023,7 +999,7 @@ class _TaskViewState extends State<TaskView> {
     }
 
     if (!mounted) return;
-    Navigator.pop(context); // dismiss loading
+    Navigator.pop(context);
 
     await _showDecompositionConfirmDialog(
       subtasks: subtasks,
@@ -1046,7 +1022,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -1068,8 +1043,7 @@ class _TaskViewState extends State<TaskView> {
                           children: [
                             Checkbox(
                               value: checked[i],
-                              onChanged: (v) =>
-                                  setModalState(() => checked[i] = v ?? false),
+                              onChanged: (v) => setModalState(() => checked[i] = v ?? false),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -1087,24 +1061,18 @@ class _TaskViewState extends State<TaskView> {
                                     today.add(const Duration(days: 7));
                                 final picked = await showDatePicker(
                                   context: context,
-                                  initialDate:
-                                      DateTime.tryParse(dates[i]) ?? today,
+                                  initialDate: DateTime.tryParse(dates[i]) ?? today,
                                   firstDate: today,
                                   lastDate: dueParsed,
                                 );
                                 if (picked != null) {
                                   setModalState(() {
-                                    dates[i] = DateFormat(
-                                      'yyyy-MM-dd',
-                                    ).format(picked);
+                                    dates[i] = DateFormat('yyyy-MM-dd').format(picked);
                                   });
                                 }
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFD7EEF2),
                                   borderRadius: BorderRadius.circular(10),
@@ -1197,25 +1165,25 @@ class _TaskViewState extends State<TaskView> {
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
+            children: [
               Icon(
                 Icons.rocket_launch_rounded,
                 size: 68,
-                color: Color(0xFFB0BEC5),
+                color: _mutedTextColor,
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
                 'No big tasks yet',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black54,
+                  color: _mutedTextColor,
                 ),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
                 "Tap 'Add Big Task' to create one.",
-                style: TextStyle(fontSize: 14, color: Colors.black45),
+                style: TextStyle(fontSize: 14, color: _mutedTextColor),
               ),
             ],
           ),
@@ -1269,7 +1237,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -1319,16 +1286,18 @@ class _TaskViewState extends State<TaskView> {
                       },
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black38),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.access_time_rounded,
-                                size: 20, color: Colors.black54),
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 20,
+                              color: _mutedTextColor,
+                            ),
                             const SizedBox(width: 10),
                             Text(
                               selectedTime != null
@@ -1336,9 +1305,7 @@ class _TaskViewState extends State<TaskView> {
                                   : 'Time (optional)',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: selectedTime != null
-                                    ? Colors.black87
-                                    : Colors.black54,
+                                color: selectedTime != null ? _onSurfaceColor : _mutedTextColor,
                               ),
                             ),
                           ],
@@ -1355,10 +1322,7 @@ class _TaskViewState extends State<TaskView> {
                         ),
                       ),
                       items: const [
-                        DropdownMenuItem(
-                          value: 'full',
-                          child: Text('Full Day'),
-                        ),
+                        DropdownMenuItem(value: 'full', child: Text('Full Day')),
                         DropdownMenuItem(value: 'am', child: Text('AM')),
                         DropdownMenuItem(value: 'pm', child: Text('PM')),
                       ],
@@ -1400,9 +1364,7 @@ class _TaskViewState extends State<TaskView> {
                   title: title,
                   description: description.isEmpty ? null : description,
                   date: _dateKey,
-                  time: selectedTime != null
-                      ? selectedTime!.format(context)
-                      : '',
+                  time: selectedTime != null ? selectedTime!.format(context) : '',
                   isCompleted: false,
                   period: selectedTaskPeriod,
                 );
@@ -1423,7 +1385,7 @@ class _TaskViewState extends State<TaskView> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: _softSurfaceColor,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
@@ -1461,7 +1423,7 @@ class _TaskViewState extends State<TaskView> {
               Icon(
                 icon,
                 size: 18,
-                color: isSelected ? const Color(0xFF1E5A67) : Colors.black54,
+                color: isSelected ? const Color(0xFF1E5A67) : _mutedTextColor,
               ),
               const SizedBox(width: 6),
               Text(
@@ -1469,7 +1431,7 @@ class _TaskViewState extends State<TaskView> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? const Color(0xFF1E5A67) : Colors.black87,
+                  color: isSelected ? const Color(0xFF1E5A67) : _onSurfaceColor,
                 ),
               ),
             ],
@@ -1484,11 +1446,13 @@ class _TaskViewState extends State<TaskView> {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: _isDark
+                ? Colors.black.withOpacity(0.18)
+                : Colors.black.withOpacity(0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1499,19 +1463,19 @@ class _TaskViewState extends State<TaskView> {
         children: [
           IconButton(
             onPressed: _previousDay,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: _onSurfaceColor),
           ),
           Text(
             _formattedDate,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: _onSurfaceColor,
             ),
           ),
           IconButton(
             onPressed: _nextDay,
-            icon: const Icon(Icons.arrow_forward_ios_rounded),
+            icon: Icon(Icons.arrow_forward_ios_rounded, color: _onSurfaceColor),
           ),
         ],
       ),
@@ -1523,21 +1487,21 @@ class _TaskViewState extends State<TaskView> {
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.event_note_rounded, size: 68, color: Color(0xFFB0BEC5)),
-            SizedBox(height: 12),
+          children: [
+            Icon(Icons.event_note_rounded, size: 68, color: _mutedTextColor),
+            const SizedBox(height: 12),
             Text(
               'No tasks for this time slot',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Colors.black54,
+                color: _mutedTextColor,
               ),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Text(
               'Tap "Add Task" to create one.',
-              style: TextStyle(fontSize: 14, color: Colors.black45),
+              style: TextStyle(fontSize: 14, color: _mutedTextColor),
             ),
           ],
         ),
@@ -1551,11 +1515,13 @@ class _TaskViewState extends State<TaskView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFE8F5E9),
+          color: _isDark ? const Color(0xFF1B3A27) : const Color(0xFFE8F5E9),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: _isDark
+                  ? Colors.black.withOpacity(0.18)
+                  : Colors.black.withOpacity(0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1563,23 +1529,22 @@ class _TaskViewState extends State<TaskView> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.check_circle_rounded,
-                color: Color(0xFF66BB6A), size: 22),
+            const Icon(Icons.check_circle_rounded, color: Color(0xFF66BB6A), size: 22),
             const SizedBox(width: 12),
-            Expanded(
+            const Expanded(
               child: Text(
                 'Task completed',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF2E7D32),
+                  color: Color(0xFF66BB6A),
                 ),
               ),
             ),
             TextButton(
               onPressed: () => _toggleTask(task, false),
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF1E5A67),
+                foregroundColor: const Color(0xFF6EC6D9),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text(
@@ -1599,11 +1564,13 @@ class _TaskViewState extends State<TaskView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFEBEE),
+          color: _isDark ? const Color(0xFF3A1B1B) : const Color(0xFFFFEBEE),
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: _isDark
+                  ? Colors.black.withOpacity(0.18)
+                  : Colors.black.withOpacity(0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1611,8 +1578,7 @@ class _TaskViewState extends State<TaskView> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.delete_outline_rounded,
-                color: Color(0xFFE53935), size: 22),
+            const Icon(Icons.delete_outline_rounded, color: Color(0xFFE57373), size: 22),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -1620,7 +1586,7 @@ class _TaskViewState extends State<TaskView> {
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFB71C1C),
+                  color: Color(0xFFE57373),
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1628,7 +1594,7 @@ class _TaskViewState extends State<TaskView> {
             TextButton(
               onPressed: () => _undoDeleteTask(task),
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF1E5A67),
+                foregroundColor: const Color(0xFF6EC6D9),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text(
@@ -1649,30 +1615,26 @@ class _TaskViewState extends State<TaskView> {
       return const Expanded(child: Center(child: CircularProgressIndicator()));
     }
 
-    // Filter: show incomplete tasks + recently completed (undo card); hide the rest
     final displayTasks = _filteredTasks.where((t) =>
-      !t.isCompleted ||
-      (t.id != null && _recentlyCompleted.contains(t.id!))
+      !t.isCompleted || (t.id != null && _recentlyCompleted.contains(t.id!))
     ).toList();
 
     if (displayTasks.isEmpty && _recentlyDeleted.isEmpty) {
       return _buildEmptyState();
     }
 
-    // Build merged list: insert deleted undo cards at their original positions.
-    // Each entry is either a regular Task or a deleted-marker Task.
     final List<({Task task, bool isDeleted})> combined = [
       for (final t in displayTasks) (task: t, isDeleted: false),
     ];
+
     final sortedDeleted = List.of(_recentlyDeleted)
       ..sort((a, b) => a.index.compareTo(b.index));
-    // Insert from highest index to lowest to avoid shifting earlier entries.
+
     for (final entry in sortedDeleted.reversed) {
       final idx = entry.index.clamp(0, combined.length);
       combined.insert(idx, (task: entry.task, isDeleted: true));
     }
 
-    // Build a lookup for big task colors
     final bigTaskLookup = <int, BigTask>{
       for (final bt in _bigTasks)
         if (bt.id != null) bt.id!: bt,
@@ -1702,6 +1664,7 @@ class _TaskViewState extends State<TaskView> {
               tileColor = bigTaskColors[bt.color];
             }
           }
+
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Slidable(
@@ -1749,39 +1712,42 @@ class _TaskViewState extends State<TaskView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _surfaceColor,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.history_rounded, color: Colors.black87),
+          icon: Icon(Icons.history_rounded, color: _onSurfaceColor),
           onPressed: () {
             if (widget.userId != null) {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => HistoryView(userId: widget.userId!, firebaseUserId: widget.firebaseUserId),
+                  builder: (_) => HistoryView(
+                    userId: widget.userId!,
+                    firebaseUserId: widget.firebaseUserId,
+                  ),
                 ),
               ).then((_) => _loadTasks());
             }
           },
         ),
-        title: const Text(
+        title: Text(
           'Tiny Tasks',
           style: TextStyle(
-            color: Colors.black87,
+            color: _onSurfaceColor,
             fontWeight: FontWeight.w700,
             fontSize: 22,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+            icon: Icon(Icons.refresh_rounded, color: _onSurfaceColor),
             onPressed: _loadTasks,
           ),
           IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black87),
+            icon: Icon(Icons.settings, color: _onSurfaceColor),
             onPressed: () {
               Navigator.push(
                 context,
