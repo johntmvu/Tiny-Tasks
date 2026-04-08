@@ -72,7 +72,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           childrenPadding: const EdgeInsets.only(bottom: 8),
           backgroundColor: Colors.white,
           collapsedBackgroundColor: Colors.white,
@@ -127,14 +127,14 @@ class _BigTaskTileState extends State<BigTaskTile> {
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   onPressed: widget.onEdit,
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   constraints: const BoxConstraints(),
                 ),
               if (widget.onDelete != null)
                 IconButton(
                   icon: const Icon(Icons.delete_outline_rounded, size: 20),
                   onPressed: widget.onDelete,
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   constraints: const BoxConstraints(),
                 ),
               const SizedBox(width: 8),
@@ -153,7 +153,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
               : tinyTasks.map((task) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 2),
+                        horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
                         Checkbox(

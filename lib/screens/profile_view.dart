@@ -13,48 +13,54 @@ class ProfileView extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Profile"),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const CircleAvatar(
-              radius: 45,
-              child: Icon(Icons.person, size: 50),
-            ),
-            const SizedBox(height: 15),
-
-            Text(
-              user?.email ?? "No email",
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const CircleAvatar(
+                radius: 45,
+                child: Icon(Icons.person, size: 50),
               ),
-            ),
+              const SizedBox(height: 16),
 
-            const SizedBox(height: 8),
+              Text(
+                user?.email ?? "No email",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
 
-            Text(
-              "UID: ${user?.uid ?? "N/A"}",
-              style: const TextStyle(color: Colors.grey),
-            ),
+              const SizedBox(height: 8),
 
-            const SizedBox(height: 30),
+              Text(
+                "UID: ${user?.uid ?? "N/A"}",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
+              ),
 
-            ElevatedButton.icon(
-              icon: const Icon(Icons.logout),
-              label: const Text("Sign Out"),
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (!context.mounted) return;
+              const SizedBox(height: 30),
 
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                  (route) => false,
-                );
-              },
-            ),
-          ],
+              ElevatedButton.icon(
+                icon: const Icon(Icons.logout),
+                label: const Text("Sign Out"),
+                onPressed: () async {
+                  await FirebaseAuth.instance.signOut();
+                  if (!context.mounted) return;
+
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                    (route) => false,
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

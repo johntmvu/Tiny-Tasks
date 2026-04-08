@@ -189,7 +189,7 @@ class _HistoryViewState extends State<HistoryView> {
     if (isUnchecked) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: const Color(0xFFFFF8E1),
           borderRadius: BorderRadius.circular(16),
@@ -204,7 +204,7 @@ class _HistoryViewState extends State<HistoryView> {
         child: Row(
           children: [
             const Icon(Icons.radio_button_unchecked_rounded,
-                color: Color(0xFFFFA000), size: 22),
+                color: Color(0xFFFFA000), size: 20),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(

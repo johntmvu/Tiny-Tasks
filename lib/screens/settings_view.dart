@@ -31,7 +31,7 @@ class _SettingsViewState extends State<SettingsView> {
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               "Account",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ),
 
@@ -54,7 +54,7 @@ class _SettingsViewState extends State<SettingsView> {
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               "Preferences",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ),
 
@@ -79,20 +79,6 @@ class _SettingsViewState extends State<SettingsView> {
             onChanged: (val) => setState(() => haptics = val),
           ),
 
-          const Divider(),
-
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text("About"),
-            subtitle: const Text("Tiny Tasks - Sprint 2"),
-            onTap: () {
-              showAboutDialog(
-                context: context,
-                applicationName: "Tiny Tasks",
-                applicationVersion: "Sprint 2",
-              );
-            },
-          ),
         ],
       ),
     );

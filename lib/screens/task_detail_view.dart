@@ -13,7 +13,7 @@ class TaskDetailView extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical`(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => TaskDetailView(task: task),
     );
@@ -26,8 +26,9 @@ class TaskDetailView extends StatelessWidget {
     final createdAtFormatted = DateFormat('MMM d, yyyy • h:mm a')
         .format(task.createdAt);
 
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 12, 28, 80),
+      padding: EdgeInsets.fromLTRB(28, 12, 28, 24 + bottomPadding),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

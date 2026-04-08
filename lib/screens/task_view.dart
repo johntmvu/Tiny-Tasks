@@ -12,6 +12,9 @@ import 'history_view.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../services/google_calendar_service.dart';
 
+const _kAccentBg = Color(0xFFD7EEF2);
+const _kAccentFg = Color(0xFF1E5A67);
+
 class TaskView extends StatefulWidget {
   final int? userId;
   final String? firebaseUserId;
@@ -332,8 +335,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -640,8 +643,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
@@ -755,8 +758,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 elevation: 0,
@@ -938,8 +941,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1126,14 +1129,14 @@ class _TaskViewState extends State<TaskView> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFD7EEF2),
+                                  color: _kAccentBg,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   dates[i],
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF1E5A67),
+                                    color: _kAccentFg,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1155,8 +1158,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1420,8 +1423,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1488,10 +1491,12 @@ class _TaskViewState extends State<TaskView> {
           if (value == 'big') _loadBigTasks();
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: isSelected
+              ? const Duration(milliseconds: 200)
+              : Duration.zero,
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFD7EEF2) : Colors.transparent,
+            color: isSelected ? _kAccentBg : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -1500,7 +1505,7 @@ class _TaskViewState extends State<TaskView> {
               Icon(
                 icon,
                 size: 18,
-                color: isSelected ? const Color(0xFF1E5A67) : Colors.black54,
+                color: isSelected ? _kAccentFg : Colors.black54,
               ),
               const SizedBox(width: 6),
               Text(
@@ -1508,7 +1513,7 @@ class _TaskViewState extends State<TaskView> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? const Color(0xFF1E5A67) : Colors.black87,
+                  color: isSelected ? _kAccentFg : Colors.black87,
                 ),
               ),
             ],
@@ -1618,7 +1623,7 @@ class _TaskViewState extends State<TaskView> {
             TextButton(
               onPressed: () => _toggleTask(task, false),
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF1E5A67),
+                foregroundColor: _kAccentFg,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text(
@@ -1667,7 +1672,7 @@ class _TaskViewState extends State<TaskView> {
             TextButton(
               onPressed: () => _undoDeleteTask(task),
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF1E5A67),
+                foregroundColor: _kAccentFg,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text(
@@ -1851,8 +1856,8 @@ class _TaskViewState extends State<TaskView> {
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD7EEF2),
-              foregroundColor: const Color(0xFF1E5A67),
+              backgroundColor: _kAccentBg,
+              foregroundColor: _kAccentFg,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
