@@ -35,7 +35,7 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -91,6 +91,8 @@ class SQLiteHelper {
         Period TEXT NOT NULL DEFAULT 'full',
         BigTask_ID INTEGER REFERENCES BigTask (BigTask_ID) ON DELETE SET NULL,
         Is_Rescheduled INTEGER NOT NULL DEFAULT 0,
+        Reminder_Enabled INTEGER NOT NULL DEFAULT 0,
+        Notification_ID INTEGER,
         FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
       )
     ''');
@@ -139,6 +141,14 @@ class SQLiteHelper {
     if (oldVersion < 7) {
       await db.execute(
         'ALTER TABLE Task ADD COLUMN Is_Rescheduled INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 8) {
+      await db.execute(
+        'ALTER TABLE Task ADD COLUMN Reminder_Enabled INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE Task ADD COLUMN Notification_ID INTEGER',
       );
     }
   }

@@ -200,6 +200,7 @@ class _TaskViewState extends State<TaskView> {
         TextEditingController(text: task.description ?? '');
     String selectedTaskPeriod = task.period;
     TimeOfDay? selectedTime = _parseTimeOfDay(task.time);
+    bool reminderEnabled = task.reminderEnabled;
 
     showDialog(
       context: context,
@@ -302,6 +303,23 @@ class _TaskViewState extends State<TaskView> {
                         }
                       },
                     ),
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Remind me'),
+                      subtitle: selectedTime == null
+                          ? const Text(
+                              'Set a time above to enable',
+                              style: TextStyle(fontSize: 12),
+                            )
+                          : null,
+                      secondary: const Icon(Icons.notifications_outlined),
+                      value: reminderEnabled,
+                      onChanged: selectedTime == null
+                          ? null
+                          : (val) =>
+                              setModalState(() => reminderEnabled = val),
+                    ),
                   ],
                 ),
               );
@@ -335,6 +353,8 @@ class _TaskViewState extends State<TaskView> {
                         ? selectedTime!.format(context)
                         : '',
                     period: selectedTaskPeriod,
+                    reminderEnabled:
+                        reminderEnabled && selectedTime != null,
                   ),
                 );
               },
@@ -1264,6 +1284,7 @@ class _TaskViewState extends State<TaskView> {
     final descriptionController = TextEditingController();
     String selectedTaskPeriod = _selectedPeriod == 'big' ? 'full' : _selectedPeriod;
     TimeOfDay? selectedTime;
+    bool reminderEnabled = false;
 
     showDialog(
       context: context,
@@ -1370,6 +1391,23 @@ class _TaskViewState extends State<TaskView> {
                         }
                       },
                     ),
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Remind me'),
+                      subtitle: selectedTime == null
+                          ? const Text(
+                              'Set a time above to enable',
+                              style: TextStyle(fontSize: 12),
+                            )
+                          : null,
+                      secondary: const Icon(Icons.notifications_outlined),
+                      value: reminderEnabled,
+                      onChanged: selectedTime == null
+                          ? null
+                          : (val) =>
+                              setModalState(() => reminderEnabled = val),
+                    ),
                   ],
                 ),
               );
@@ -1405,6 +1443,7 @@ class _TaskViewState extends State<TaskView> {
                       : '',
                   isCompleted: false,
                   period: selectedTaskPeriod,
+                  reminderEnabled: reminderEnabled && selectedTime != null,
                 );
 
                 Navigator.pop(context);

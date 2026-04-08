@@ -13,7 +13,7 @@ class TaskDetailView extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical`(top: Radius.circular(24)),
       ),
       builder: (_) => TaskDetailView(task: task),
     );

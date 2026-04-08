@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/notification_service.dart';
 import 'profile_view.dart';
 
 class SettingsView extends StatefulWidget {
@@ -60,7 +61,10 @@ class _SettingsViewState extends State<SettingsView> {
           SwitchListTile(
             title: const Text("Notifications"),
             value: notifications,
-            onChanged: (val) => setState(() => notifications = val),
+            onChanged: (val) {
+              setState(() => notifications = val);
+              if (!val) NotificationService.instance.cancelAll();
+            },
           ),
 
           SwitchListTile(

@@ -50,6 +50,9 @@ dependencies:
   path: ^1.9.1
   google_sign_in: ^6.2.1
   http: ^1.2.0
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+  flutter_timezone: ^3.0.0
 
 dev_dependencies:
   flutter_test:
