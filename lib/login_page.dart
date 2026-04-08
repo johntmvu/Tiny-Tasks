@@ -4,6 +4,7 @@ import 'screens/task_view.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/task_repository.dart';
 import 'models/user.dart' as user_models;
+import 'services/google_auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -140,6 +141,67 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+  setState(() {
+    _isLoading = true;
+    _errorMessage = "";
+  });
+
+  try {
+    final result = await GoogleAuthService().signInWithGoogle();
+
+    if (result == null) return;
+
+    final user = result['user'];
+    final accessToken = result['accessToken'];
+
+    if (user == null) return;
+
+    final firebaseUid = user.uid;
+
+    final existingUser = await _userRepository.getUserByEmail(
+      user.email ?? "",
+    );
+
+    int userId;
+
+    if (existingUser == null) {
+      final newUser = user_models.User(
+        name: user.displayName ?? "User",
+        email: user.email ?? "",
+      );
+
+      userId = await _userRepository.createUser(newUser);
+    } else {
+      userId = existingUser.userId!;
+    }
+
+    await _taskRepository.syncFromFirestore(firebaseUid, userId);
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => TaskView(
+          userId: userId,
+          firebaseUserId: firebaseUid,
+          accessToken: accessToken,
+        ),
+      ),
+    );
+  } catch (e) {
+    setState(() {
+      _errorMessage = "Google Sign-In failed: $e";
+    });
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+}
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -236,6 +298,7 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: _inputDecoration("Password", Icons.lock_outline),
                 ),
                 const SizedBox(height: 20),
+
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -272,6 +335,27 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _signInWithGoogle,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black87,
+                      elevation: 0,
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: const Text(
+                      "Sign in with Google",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
