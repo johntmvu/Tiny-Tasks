@@ -148,7 +148,12 @@ class _LoginPageState extends State<LoginPage> {
   });
 
   try {
-    final user = await GoogleAuthService().signInWithGoogle();
+    final result = await GoogleAuthService().signInWithGoogle();
+
+    if (result == null) return;
+
+    final user = result['user'];
+    final accessToken = result['accessToken'];
 
     if (user == null) return;
 
@@ -180,6 +185,7 @@ class _LoginPageState extends State<LoginPage> {
         builder: (_) => TaskView(
           userId: userId,
           firebaseUserId: firebaseUid,
+          accessToken: accessToken,
         ),
       ),
     );

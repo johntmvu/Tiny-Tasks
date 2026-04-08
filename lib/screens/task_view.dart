@@ -10,12 +10,14 @@ import '../widgets/big_task_tile.dart';
 import 'settings_view.dart';
 import 'history_view.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import '../services/google_calendar_service.dart';
 
 class TaskView extends StatefulWidget {
   final int? userId;
   final String? firebaseUserId;
+  final String? accessToken;
 
-  const TaskView({super.key, this.userId, this.firebaseUserId});
+  const TaskView({super.key, this.userId, this.firebaseUserId, this.accessToken});
 
   @override
   State<TaskView> createState() => _TaskViewState();
@@ -88,21 +90,35 @@ class _TaskViewState extends State<TaskView> {
   }
 
   Future<void> _addTask(Task task) async {
+  try {
+    await _taskRepository.createTask(
+      task,
+      firebaseUserId: widget.firebaseUserId,
+    );
+
+    // ✅ FIXED: safe calendar call
     try {
-      await _taskRepository.createTask(
-        task,
-        firebaseUserId: widget.firebaseUserId,
-      );
-      await _loadTasks();
-    } catch (e) {
-      debugPrint('Error adding task: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add task: $e')));
+      if (widget.accessToken != null) {
+        await GoogleCalendarService().createEvent(
+          accessToken: widget.accessToken!,
+          title: task.title,
+          date: task.date,
+        );
       }
+    } catch (e) {
+      debugPrint("Calendar sync failed: $e");
+    }
+
+    await _loadTasks();
+  } catch (e) {
+    debugPrint('Error adding task: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add task: $e')),
+      );
     }
   }
+}
 
   Future<void> _deleteTask(Task task, int displayIndex) async {
     if (task.id == null) return;
