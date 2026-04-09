@@ -34,6 +34,7 @@ class _TaskViewState extends State<TaskView> {
   List<Task> _tasks = [];
   bool _isLoading = true;
   String _selectedPeriod = 'full';
+  bool _showBigTasks = false;
   List<BigTask> _bigTasks = [];
   Map<int, List<Task>> _tinyTasksByBigTask = {};
   bool _isLoadingBigTasks = false;
@@ -209,7 +210,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -510,7 +510,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('Edit Big Task',
@@ -694,7 +693,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text('Edit Subtask',
@@ -791,7 +789,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -1069,7 +1066,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -1248,7 +1244,7 @@ class _TaskViewState extends State<TaskView> {
 
     return Expanded(
       child: ListView.builder(
-        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        padding: const EdgeInsets.only(top: 4, bottom: 88),
         itemCount: _bigTasks.length,
         itemBuilder: (context, index) {
           final bigTask = _bigTasks[index];
@@ -1285,7 +1281,7 @@ class _TaskViewState extends State<TaskView> {
   void _showAddTaskDialog() {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
-    String selectedTaskPeriod = _selectedPeriod == 'big' ? 'full' : _selectedPeriod;
+    String selectedTaskPeriod = _selectedPeriod;
     TimeOfDay? selectedTime;
     bool reminderEnabled = false;
 
@@ -1293,7 +1289,6 @@ class _TaskViewState extends State<TaskView> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -1470,7 +1465,6 @@ class _TaskViewState extends State<TaskView> {
       ),
       child: Row(
         children: [
-          _buildPeriodButton('Big Tasks', 'big', Icons.rocket_launch_rounded),
           _buildPeriodButton('Full Day', 'full', Icons.check_rounded),
           _buildPeriodButton('AM', 'am', Icons.wb_sunny_rounded),
           _buildPeriodButton('PM', 'pm', Icons.nightlight_round),
@@ -1488,7 +1482,6 @@ class _TaskViewState extends State<TaskView> {
           setState(() {
             _selectedPeriod = value;
           });
-          if (value == 'big') _loadBigTasks();
         },
         child: AnimatedContainer(
           duration: isSelected
@@ -1530,13 +1523,7 @@ class _TaskViewState extends State<TaskView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06), width: 1),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1687,7 +1674,7 @@ class _TaskViewState extends State<TaskView> {
   }
 
   Widget _buildTaskList() {
-    if (_selectedPeriod == 'big') return _buildBigTaskList();
+    if (_showBigTasks) return _buildBigTaskList();
 
     if (_isLoading) {
       return const Expanded(child: Center(child: CircularProgressIndicator()));
@@ -1724,7 +1711,7 @@ class _TaskViewState extends State<TaskView> {
 
     return Expanded(
       child: ListView.builder(
-        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        padding: const EdgeInsets.only(top: 4, bottom: 88),
         itemCount: combined.length,
         itemBuilder: (context, index) {
           final item = combined[index];
@@ -1797,6 +1784,7 @@ class _TaskViewState extends State<TaskView> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.history_rounded, color: Colors.black87),
@@ -1837,34 +1825,45 @@ class _TaskViewState extends State<TaskView> {
       ),
       body: Column(
         children: [
-          if (_selectedPeriod != 'big') _buildDateCard(),
-          _buildPeriodSelector(),
+          if (!_showBigTasks) _buildDateCard(),
+          if (!_showBigTasks) _buildPeriodSelector(),
           _buildTaskList(),
         ],
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-        child: SizedBox(
-          height: 56,
-          child: ElevatedButton.icon(
-            onPressed: _selectedPeriod == 'big'
-                ? _showAddBigTaskDialog
-                : _showAddTaskDialog,
-            icon: const Icon(Icons.add_rounded),
-            label: Text(
-              _selectedPeriod == 'big' ? 'Add Big Task' : 'Add Task',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _kAccentBg,
-              foregroundColor: _kAccentFg,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-          ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showBigTasks ? _showAddBigTaskDialog : _showAddTaskDialog,
+        backgroundColor: _kAccentBg,
+        foregroundColor: _kAccentFg,
+        elevation: 2,
+        icon: const Icon(Icons.add_rounded),
+        label: Text(
+          _showBigTasks ? 'Add Big Task' : 'Add Task',
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _showBigTasks ? 1 : 0,
+        onTap: (index) {
+          final goingBig = index == 1;
+          setState(() => _showBigTasks = goingBig);
+          if (goingBig) _loadBigTasks();
+        },
+        elevation: 8,
+        selectedItemColor: _kAccentFg,
+        unselectedItemColor: Colors.black45,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.task_alt_rounded),
+            label: 'Tasks',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.layers_rounded),
+            label: 'Big Tasks',
+          ),
+        ],
       ),
     );
   }

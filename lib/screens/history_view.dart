@@ -193,13 +193,6 @@ class _HistoryViewState extends State<HistoryView> {
         decoration: BoxDecoration(
           color: const Color(0xFFFFF8E1),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         child: Row(
           children: [
@@ -240,13 +233,7 @@ class _HistoryViewState extends State<HistoryView> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          border: Border.all(color: Colors.black.withValues(alpha: 0.06), width: 1),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -273,10 +260,7 @@ class _HistoryViewState extends State<HistoryView> {
                       children: [
                         const TextSpan(
                           text: 'You completed ',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.black87,
-                          ),
+                          style: TextStyle(fontSize: 15, color: Colors.black87),
                         ),
                         TextSpan(
                           text: task.title,
@@ -293,10 +277,7 @@ class _HistoryViewState extends State<HistoryView> {
                     const SizedBox(height: 4),
                     Text(
                       task.time,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black45,
-                      ),
+                      style: const TextStyle(fontSize: 12, color: Colors.black45),
                     ),
                   ],
                 ],

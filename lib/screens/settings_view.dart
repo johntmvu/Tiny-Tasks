@@ -13,7 +13,6 @@ class SettingsView extends StatefulWidget {
 class _SettingsViewState extends State<SettingsView> {
   bool notifications = true;
   bool darkMode = false;
-  bool haptics = true;
 
   @override
   Widget build(BuildContext context) {
@@ -72,13 +71,6 @@ class _SettingsViewState extends State<SettingsView> {
             value: darkMode,
             onChanged: (val) => setState(() => darkMode = val),
           ),
-
-          SwitchListTile(
-            title: const Text("Haptics"),
-            value: haptics,
-            onChanged: (val) => setState(() => haptics = val),
-          ),
-
         ],
       ),
     );

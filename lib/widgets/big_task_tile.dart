@@ -61,13 +61,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06), width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
@@ -170,9 +164,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
                             task.title,
                             style: TextStyle(
                               fontSize: 15,
-                              color: task.isCompleted
-                                  ? Colors.black38
-                                  : Colors.black87,
+                              color: task.isCompleted ? Colors.black38 : Colors.black87,
                               decoration: task.isCompleted
                                   ? TextDecoration.lineThrough
                                   : null,

@@ -50,14 +50,7 @@ class TaskTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: bigTaskColor != null
             ? Border(left: BorderSide(color: bigTaskColor!, width: 4))
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+            : Border.all(color: Colors.black.withValues(alpha: 0.06), width: 1),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
