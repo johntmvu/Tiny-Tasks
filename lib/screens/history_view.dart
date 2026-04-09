@@ -35,15 +35,12 @@ class _HistoryViewState extends State<HistoryView> {
     final allTasks = await db.getTasksByUser(widget.userId);
     final completed = allTasks.where((t) => t.isCompleted).toList();
 
-    // Group by date
     final grouped = <String, List<Task>>{};
     for (final task in completed) {
       grouped.putIfAbsent(task.date, () => []).add(task);
     }
 
-    // Sort dates descending
-    final sorted = grouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    final sorted = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     setState(() {
       _userInitial =
@@ -66,7 +63,6 @@ class _HistoryViewState extends State<HistoryView> {
           if (mounted) {
             setState(() {
               _recentlyUnchecked.remove(task.id!);
-              // Remove from local list so it disappears from history
               for (final key in _tasksByDate.keys) {
                 _tasksByDate[key]!.removeWhere((t) => t.id == task.id);
               }
@@ -113,42 +109,50 @@ class _HistoryViewState extends State<HistoryView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: theme.colorScheme.surface,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
+        title: Text(
           'History',
           style: TextStyle(
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
             fontWeight: FontWeight.w700,
             fontSize: 22,
           ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.black87),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: theme.colorScheme.onSurface,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _sortedDates.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.history_rounded,
-                          size: 68, color: Color(0xFFB0BEC5)),
-                      SizedBox(height: 12),
+                      Icon(
+                        Icons.history_rounded,
+                        size: 68,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(height: 12),
                       Text(
                         'No completed tasks yet',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black54,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -167,15 +171,15 @@ class _HistoryViewState extends State<HistoryView> {
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
                           child: Text(
                             _dateHeader(date),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black54,
+                              color: theme.colorScheme.onSurfaceVariant,
                               letterSpacing: 0.2,
                             ),
                           ),
                         ),
-                        ...tasks.map((task) => _buildTaskRow(task)),
+                        ...tasks.map((task) => _buildTaskRow(task, theme, isDark)),
                       ],
                     );
                   },
@@ -183,7 +187,7 @@ class _HistoryViewState extends State<HistoryView> {
     );
   }
 
-  Widget _buildTaskRow(Task task) {
+  Widget _buildTaskRow(Task task, ThemeData theme, bool isDark) {
     final isUnchecked = task.id != null && _recentlyUnchecked.contains(task.id!);
 
     if (isUnchecked) {
@@ -191,13 +195,23 @@ class _HistoryViewState extends State<HistoryView> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF8E1),
+          color: isDark ? const Color(0xFF3A3118) : const Color(0xFFFFF8E1),
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.radio_button_unchecked_rounded,
-                color: Color(0xFFFFA000), size: 20),
+            const Icon(
+              Icons.radio_button_unchecked_rounded,
+              color: Color(0xFFFFA000),
+              size: 22,
+            ),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
@@ -205,14 +219,14 @@ class _HistoryViewState extends State<HistoryView> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF795548),
+                  color: Color(0xFFFFCC80),
                 ),
               ),
             ),
             TextButton(
               onPressed: () => _redoTask(task),
               style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFF1E5A67),
+                foregroundColor: const Color(0xFF6EC6D9),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
               child: const Text(
@@ -231,9 +245,15 @@ class _HistoryViewState extends State<HistoryView> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.06), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -258,16 +278,19 @@ class _HistoryViewState extends State<HistoryView> {
                   Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(
+                        TextSpan(
                           text: 'You completed ',
-                          style: TextStyle(fontSize: 15, color: Colors.black87),
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: theme.colorScheme.onSurface,
+                          ),
                         ),
                         TextSpan(
                           text: task.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -277,14 +300,20 @@ class _HistoryViewState extends State<HistoryView> {
                     const SizedBox(height: 4),
                     Text(
                       task.time,
-                      style: const TextStyle(fontSize: 12, color: Colors.black45),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
-            const Icon(Icons.check_circle_rounded,
-                color: Color(0xFF81C784), size: 20),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF81C784),
+              size: 20,
+            ),
           ],
         ),
       ),

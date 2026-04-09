@@ -32,9 +32,9 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final credential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim(),
-          );
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
 
       final newUser = user_models.User(
         name: _emailController.text.trim().split('@')[0],
@@ -54,8 +54,8 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } on FirebaseAuthException catch (e) {
-        setState(() {
-          _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
+      setState(() {
+        _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
       });
       debugPrint("FirebaseAuthException: ${e.code} | ${e.message}");
     } catch (e) {
@@ -123,12 +123,12 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       }
-  } on FirebaseAuthException catch (e) {
-    setState(() {
-      _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
-    });
-    debugPrint("FirebaseAuthException: ${e.code} | ${e.message}");
-  } catch (e) {
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
+      });
+      debugPrint("FirebaseAuthException: ${e.code} | ${e.message}");
+    } catch (e) {
       setState(() {
         _errorMessage = "Error: $e";
       });
@@ -142,65 +142,107 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _signInWithGoogle() async {
-  setState(() {
-    _isLoading = true;
-    _errorMessage = "";
-  });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = "";
+    });
 
-  try {
-    final result = await GoogleAuthService().signInWithGoogle();
+    try {
+      final result = await GoogleAuthService().signInWithGoogle();
 
-    if (result == null) return;
+      if (result == null) return;
 
-    final user = result['user'];
-    final accessToken = result['accessToken'];
+      final user = result['user'];
+      final accessToken = result['accessToken'];
 
-    if (user == null) return;
+      if (user == null) return;
 
-    final firebaseUid = user.uid;
+      final firebaseUid = user.uid;
 
-    final existingUser = await _userRepository.getUserByEmail(
-      user.email ?? "",
-    );
-
-    int userId;
-
-    if (existingUser == null) {
-      final newUser = user_models.User(
-        name: user.displayName ?? "User",
-        email: user.email ?? "",
+      final existingUser = await _userRepository.getUserByEmail(
+        user.email ?? "",
       );
 
-      userId = await _userRepository.createUser(newUser);
-    } else {
-      userId = existingUser.userId!;
+      int userId;
+
+      if (existingUser == null) {
+        final newUser = user_models.User(
+          name: user.displayName ?? "User",
+          email: user.email ?? "",
+        );
+
+        userId = await _userRepository.createUser(newUser);
+      } else {
+        userId = existingUser.userId!;
+      }
+
+      await _taskRepository.syncFromFirestore(firebaseUid, userId);
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => TaskView(
+            userId: userId,
+            firebaseUserId: firebaseUid,
+            accessToken: accessToken,
+          ),
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _errorMessage = "Google Sign-In failed: $e";
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
+  }
 
-    await _taskRepository.syncFromFirestore(firebaseUid, userId);
+  InputDecoration _inputDecoration(
+    BuildContext context,
+    String label,
+    IconData icon,
+  ) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    if (!mounted) return;
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => TaskView(
-          userId: userId,
-          firebaseUserId: firebaseUid,
-          accessToken: accessToken,
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: isDark ? Colors.white70 : Colors.black54,
+      ),
+      hintStyle: TextStyle(
+        color: isDark ? Colors.white38 : Colors.black38,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: isDark ? Colors.white70 : Colors.black54,
+      ),
+      filled: true,
+      fillColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: isDark ? Colors.white24 : const Color(0xFFE2E8F0),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: Color(0xFF8ECFD8),
+          width: 1.5,
         ),
       ),
     );
-  } catch (e) {
-    setState(() {
-      _errorMessage = "Google Sign-In failed: $e";
-    });
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
   }
-}
 
   @override
   void dispose() {
@@ -209,31 +251,13 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon),
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF8ECFD8), width: 1.5),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -241,11 +265,11 @@ class _LoginPageState extends State<LoginPage> {
             constraints: const BoxConstraints(maxWidth: 420),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFFFDFEFE),
+              color: theme.cardColor,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
+                  color: Colors.black.withOpacity(isDark ? 0.18 : 0.06),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -268,37 +292,50 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   "Tiny Tasks",
                   style: TextStyle(
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
-                    color: Colors.black87,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   "Sign in to manage your day better",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.black54,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 28),
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDecoration("Email", Icons.email_outlined),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  decoration: _inputDecoration(
+                    context,
+                    "Email",
+                    Icons.email_outlined,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: _inputDecoration("Password", Icons.lock_outline),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  decoration: _inputDecoration(
+                    context,
+                    "Password",
+                    Icons.lock_outline,
+                  ),
                 ),
                 const SizedBox(height: 20),
-
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -345,19 +382,24 @@ class _LoginPageState extends State<LoginPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _signInWithGoogle,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      disabledBackgroundColor: Colors.white,
-                      disabledForegroundColor: Colors.black38,
+                      backgroundColor:
+                          isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                      foregroundColor: theme.colorScheme.onSurface,
                       elevation: 0,
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      side: BorderSide(
+                        color: isDark ? Colors.white24 : const Color(0xFFE2E8F0),
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       "Sign in with Google",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 ),
@@ -367,13 +409,15 @@ class _LoginPageState extends State<LoginPage> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFEBEE),
+                      color: isDark
+                          ? const Color(0xFF3A1B1B)
+                          : const Color(0xFFFFEBEE),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
                       _errorMessage,
                       style: const TextStyle(
-                        color: Colors.red,
+                        color: Colors.redAccent,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
