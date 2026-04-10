@@ -107,7 +107,7 @@ class TaskRepository {
           period: data['period'] ?? 'full',
         );
 
-        await _dbHelper.insertTask(task);
+        await _dbHelper.insertTaskWithId(task);
       }
     }
   }
