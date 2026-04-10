@@ -14,9 +14,6 @@ class TaskRepository {
   CollectionReference _tasksCollection(String firebaseUserId) =>
       _firestore.collection('users').doc(firebaseUserId).collection('tasks');
 
-  
-
-
   Future<int> createTask(Task task, {String? firebaseUserId}) async {
     final sqliteId = await _dbHelper.insertTask(task);
 
@@ -51,15 +48,18 @@ class TaskRepository {
     final result = await _dbHelper.updateTask(task);
 
     if (firebaseUserId != null && task.id != null) {
-      await _tasksCollection(
-        firebaseUserId,
-      ).doc(task.id.toString()).update(task.toFirestore());
+      final docRef = _tasksCollection(firebaseUserId).doc(task.id.toString());
+      try {
+        await docRef.update(task.toFirestore());
+      } on FirebaseException catch (e) {
+        if (e.code != 'not-found') rethrow;
+        await docRef.set(task.toFirestore());
+      }
     }
 
     return result;
   }
 
-  
   Future<int> deleteTask(int id, {String? firebaseUserId}) async {
     final result = await _dbHelper.deleteTask(id);
 
@@ -69,8 +69,6 @@ class TaskRepository {
 
     return result;
   }
-
-  
 
   Stream<List<Task>> getTasksStream(String firebaseUserId) {
     return _tasksCollection(
@@ -84,30 +82,40 @@ class TaskRepository {
 
   Future<void> syncFromFirestore(String firebaseUserId, int localUserId) async {
     final snapshot = await _tasksCollection(firebaseUserId).get();
+    final firestoreIds = <int>{};
 
     for (final doc in snapshot.docs) {
       final firestoreId = int.tryParse(doc.id);
       if (firestoreId == null) continue;
+      firestoreIds.add(firestoreId);
 
-      final existing = await _dbHelper.getTask(firestoreId);
-      if (existing == null) {
-        final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data() as Map<String, dynamic>;
 
-        final task = Task(
-          id: firestoreId,
-          userId: localUserId,
-          firebaseUserId: data['firebaseUserId']?.toString(),
-          title: data['title'] ?? '',
-          description: data['description'],
-          time: data['time'] ?? '',
-          date: data['date'] ?? '',
-          isCompleted: data['isCompleted'] ?? false,
-          createdAt:
-              (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          period: data['period'] ?? 'full',
-        );
+      final task = Task(
+        id: firestoreId,
+        userId: localUserId,
+        firebaseUserId: data['firebaseUserId']?.toString(),
+        title: data['title'] ?? '',
+        description: data['description'],
+        time: data['time'] ?? '',
+        date: data['date'] ?? '',
+        isCompleted: data['isCompleted'] ?? false,
+        createdAt:
+            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        period: data['period'] ?? 'full',
+        bigTaskId: data['bigTaskId'] as int?,
+        isRescheduled: data['isRescheduled'] ?? false,
+      );
 
-        await _dbHelper.insertTaskWithId(task);
+      await _dbHelper.insertTaskWithId(task);
+    }
+
+    final localTasks = await _dbHelper.getTasksByUser(localUserId);
+    for (final localTask in localTasks) {
+      final localTaskId = localTask.id;
+      if (localTaskId == null) continue;
+      if (!firestoreIds.contains(localTaskId)) {
+        await _dbHelper.deleteTask(localTaskId);
       }
     }
   }
