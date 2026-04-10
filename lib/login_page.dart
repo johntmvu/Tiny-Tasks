@@ -22,6 +22,7 @@ class _LoginPageState extends State<LoginPage> {
 
   String _errorMessage = "";
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
 
   Future<void> signUp() async {
     setState(() {
@@ -137,7 +138,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _signInWithGoogle() async {
     setState(() {
-      _isLoading = true;
+      _isGoogleLoading = true;
       _errorMessage = "";
     });
 
@@ -190,7 +191,7 @@ class _LoginPageState extends State<LoginPage> {
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
+          _isGoogleLoading = false;
         });
       }
     }
@@ -357,7 +358,7 @@ class _LoginPageState extends State<LoginPage> {
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _signInWithGoogle,
+                    onPressed: _isGoogleLoading ? null : _signInWithGoogle,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isDark
                           ? const Color(0xFF1E1E2E)

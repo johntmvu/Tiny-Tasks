@@ -1,5 +1,6 @@
 import '../database/sqlite_helper.dart';
 import '../models/task.dart';
+import '../services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TaskRepository {
@@ -17,8 +18,18 @@ class TaskRepository {
   Future<int> createTask(Task task, {String? firebaseUserId}) async {
     final sqliteId = await _dbHelper.insertTask(task);
 
+    Task taskWithId = task.copyWith(id: sqliteId);
+
+    if (taskWithId.reminderEnabled) {
+      final notifId = await NotificationService.instance
+          .scheduleTaskReminder(taskWithId);
+      if (notifId != null) {
+        taskWithId = taskWithId.copyWith(notificationId: notifId);
+        await _dbHelper.updateTask(taskWithId);
+      }
+    }
+
     if (firebaseUserId != null) {
-      final taskWithId = task.copyWith(id: sqliteId);
       await _tasksCollection(
         firebaseUserId,
       ).doc(sqliteId.toString()).set(taskWithId.toFirestore());
@@ -45,15 +56,29 @@ class TaskRepository {
 
   /// Update task locally, then sync to Firestore.
   Future<int> updateTask(Task task, {String? firebaseUserId}) async {
-    final result = await _dbHelper.updateTask(task);
+    // Cancel existing reminder before rescheduling
+    if (task.notificationId != null) {
+      await NotificationService.instance.cancelReminder(task.notificationId!);
+    }
 
-    if (firebaseUserId != null && task.id != null) {
-      final docRef = _tasksCollection(firebaseUserId).doc(task.id.toString());
+    Task updatedTask = task;
+    if (task.reminderEnabled && !task.isCompleted) {
+      final notifId =
+          await NotificationService.instance.scheduleTaskReminder(task);
+      updatedTask = task.copyWith(notificationId: notifId);
+    } else {
+      updatedTask = task.copyWith(notificationId: null);
+    }
+
+    final result = await _dbHelper.updateTask(updatedTask);
+
+    if (firebaseUserId != null && updatedTask.id != null) {
+      final docRef = _tasksCollection(firebaseUserId).doc(updatedTask.id.toString());
       try {
-        await docRef.update(task.toFirestore());
+        await docRef.update(updatedTask.toFirestore());
       } on FirebaseException catch (e) {
         if (e.code != 'not-found') rethrow;
-        await docRef.set(task.toFirestore());
+        await docRef.set(updatedTask.toFirestore());
       }
     }
 
@@ -61,6 +86,11 @@ class TaskRepository {
   }
 
   Future<int> deleteTask(int id, {String? firebaseUserId}) async {
+    final task = await _dbHelper.getTask(id);
+    if (task?.notificationId != null) {
+      await NotificationService.instance.cancelReminder(task!.notificationId!);
+    }
+
     final result = await _dbHelper.deleteTask(id);
 
     if (firebaseUserId != null) {

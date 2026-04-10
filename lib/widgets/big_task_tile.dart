@@ -56,14 +56,20 @@ class _BigTaskTileState extends State<BigTaskTile> {
     final taskColor =
         bigTaskColors[widget.bigTask.color] ?? const Color(0xFF90CAF9);
 
+    final theme = Theme.of(context);
+    final cardColor = theme.cardColor;
+    final onSurface = theme.colorScheme.onSurface;
+    final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -72,10 +78,10 @@ class _BigTaskTileState extends State<BigTaskTile> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           childrenPadding: const EdgeInsets.only(bottom: 8),
-          backgroundColor: Colors.white,
-          collapsedBackgroundColor: Colors.white,
+          backgroundColor: cardColor,
+          collapsedBackgroundColor: cardColor,
           leading: CircleAvatar(radius: 12, backgroundColor: taskColor),
           title: Row(
             children: [
@@ -85,7 +91,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color: allDone ? Colors.black45 : Colors.black87,
+                    color: allDone ? onSurfaceVariant : onSurface,
                     decoration: allDone ? TextDecoration.lineThrough : null,
                   ),
                 ),
@@ -112,7 +118,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               '$completedCount/$totalCount subtasks · Due ${widget.bigTask.dueDate}',
-              style: const TextStyle(fontSize: 13, color: Colors.black54),
+              style: TextStyle(fontSize: 13, color: onSurfaceVariant),
             ),
           ),
           trailing: Row(
@@ -120,16 +126,16 @@ class _BigTaskTileState extends State<BigTaskTile> {
             children: [
               if (widget.onEdit != null)
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  icon: Icon(Icons.edit_outlined, size: 20, color: onSurfaceVariant),
                   onPressed: widget.onEdit,
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   constraints: const BoxConstraints(),
                 ),
               if (widget.onDelete != null)
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  icon: Icon(Icons.delete_outline_rounded, size: 20, color: onSurfaceVariant),
                   onPressed: widget.onDelete,
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   constraints: const BoxConstraints(),
                 ),
               const SizedBox(width: 8),
@@ -137,20 +143,18 @@ class _BigTaskTileState extends State<BigTaskTile> {
           ),
           children: tinyTasks.isEmpty
               ? [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
                       'No subtasks yet.',
-                      style: TextStyle(color: Colors.black45, fontSize: 14),
+                      style: TextStyle(color: onSurfaceVariant, fontSize: 14),
                     ),
                   ),
                 ]
               : tinyTasks.map((task) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 2,
-                    ),
+                      horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
                         Checkbox(
@@ -167,9 +171,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
                             task.title,
                             style: TextStyle(
                               fontSize: 15,
-                              color: task.isCompleted
-                                  ? Colors.black38
-                                  : Colors.black87,
+                              color: task.isCompleted ? onSurfaceVariant : onSurface,
                               decoration: task.isCompleted
                                   ? TextDecoration.lineThrough
                                   : null,
@@ -182,24 +184,21 @@ class _BigTaskTileState extends State<BigTaskTile> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             task.date,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.black54,
+                              color: onSurfaceVariant,
                             ),
                           ),
                         ),
                         if (widget.onTinyTaskEdit != null)
                           IconButton(
-                            icon: const Icon(
-                              Icons.edit_outlined,
-                              size: 16,
-                              color: Colors.black38,
-                            ),
+                            icon: Icon(Icons.edit_outlined,
+                                size: 16, color: onSurfaceVariant),
                             padding: const EdgeInsets.only(left: 4),
                             constraints: const BoxConstraints(),
                             onPressed: () => widget.onTinyTaskEdit!(task),

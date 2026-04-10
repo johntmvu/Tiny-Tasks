@@ -13,6 +13,8 @@ class Task {
   final String period;
   final int? bigTaskId;
   final bool isRescheduled;
+  final bool reminderEnabled;
+  final int? notificationId;
 
   Task({
     this.id,
@@ -27,6 +29,8 @@ class Task {
     this.period = 'full',
     this.bigTaskId,
     this.isRescheduled = false,
+    this.reminderEnabled = false,
+    this.notificationId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Task copyWith({
@@ -42,6 +46,8 @@ class Task {
     String? period,
     int? bigTaskId,
     bool? isRescheduled,
+    bool? reminderEnabled,
+    int? notificationId,
   }) {
     return Task(
       id: id ?? this.id,
@@ -56,6 +62,8 @@ class Task {
       period: period ?? this.period,
       bigTaskId: bigTaskId ?? this.bigTaskId,
       isRescheduled: isRescheduled ?? this.isRescheduled,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      notificationId: notificationId ?? this.notificationId,
     );
   }
 
@@ -73,6 +81,8 @@ class Task {
       'Period': period,
       'BigTask_ID': bigTaskId,
       'Is_Rescheduled': isRescheduled ? 1 : 0,
+      'Reminder_Enabled': reminderEnabled ? 1 : 0,
+      'Notification_ID': notificationId,
     };
   }
 
@@ -93,6 +103,8 @@ class Task {
       period: map['Period'] ?? 'full',
       bigTaskId: map['BigTask_ID'] as int?,
       isRescheduled: (map['Is_Rescheduled'] ?? 0) == 1,
+      reminderEnabled: (map['Reminder_Enabled'] ?? 0) == 1,
+      notificationId: map['Notification_ID'] as int?,
     );
   }
 
@@ -109,6 +121,8 @@ class Task {
       'period': period,
       'bigTaskId': bigTaskId,
       'isRescheduled': isRescheduled,
+      'reminderEnabled': reminderEnabled,
+      'notificationId': notificationId,
     };
   }
 
@@ -128,6 +142,8 @@ class Task {
       period: map['period'] ?? 'full',
       bigTaskId: map['bigTaskId'] as int?,
       isRescheduled: map['isRescheduled'] ?? false,
+      reminderEnabled: map['reminderEnabled'] ?? false,
+      notificationId: map['notificationId'] as int?,
     );
   }
 }

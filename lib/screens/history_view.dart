@@ -195,7 +195,7 @@ class _HistoryViewState extends State<HistoryView> {
     if (isUnchecked) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF3A3118) : const Color(0xFFFFF8E1),
           borderRadius: BorderRadius.circular(16),

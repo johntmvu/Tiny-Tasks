@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -12,6 +13,9 @@ import 'settings_view.dart';
 import 'history_view.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../services/google_calendar_service.dart';
+
+const _kAccentBg = Color(0xFFD7EEF2);
+const _kAccentFg = Color(0xFF1E5A67);
 
 class TaskView extends StatefulWidget {
   final int? userId;
@@ -37,6 +41,7 @@ class _TaskViewState extends State<TaskView> {
   List<Task> _tasks = [];
   bool _isLoading = true;
   String _selectedPeriod = 'full';
+  bool _showBigTasks = false;
   List<BigTask> _bigTasks = [];
   Map<int, List<Task>> _tinyTasksByBigTask = {};
   bool _isLoadingBigTasks = false;
@@ -238,6 +243,7 @@ class _TaskViewState extends State<TaskView> {
     );
     String selectedTaskPeriod = task.period;
     TimeOfDay? selectedTime = _parseTimeOfDay(task.time);
+    bool reminderEnabled = task.reminderEnabled;
 
     showDialog(
       context: context,
@@ -348,6 +354,23 @@ class _TaskViewState extends State<TaskView> {
                         }
                       },
                     ),
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Remind me'),
+                      subtitle: selectedTime == null
+                          ? const Text(
+                              'Set a time above to enable',
+                              style: TextStyle(fontSize: 12),
+                            )
+                          : null,
+                      secondary: const Icon(Icons.notifications_outlined),
+                      value: reminderEnabled,
+                      onChanged: selectedTime == null
+                          ? null
+                          : (val) =>
+                              setModalState(() => reminderEnabled = val),
+                    ),
                   ],
                 ),
               );
@@ -360,8 +383,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -381,6 +404,8 @@ class _TaskViewState extends State<TaskView> {
                         ? selectedTime!.format(context)
                         : '',
                     period: selectedTaskPeriod,
+                    reminderEnabled:
+                        reminderEnabled && selectedTime != null,
                   ),
                 );
               },
@@ -687,8 +712,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -805,8 +830,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -991,8 +1016,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1189,14 +1214,14 @@ class _TaskViewState extends State<TaskView> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFD7EEF2),
+                                  color: _kAccentBg,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Text(
                                   dates[i],
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF1E5A67),
+                                    color: _kAccentFg,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1218,8 +1243,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1322,7 +1347,8 @@ class _TaskViewState extends State<TaskView> {
 
     return Expanded(
       child: ListView.builder(
-        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.only(top: 4, bottom: 88),
         itemCount: _bigTasks.length,
         itemBuilder: (context, index) {
           final bigTask = _bigTasks[index];
@@ -1363,6 +1389,7 @@ class _TaskViewState extends State<TaskView> {
         ? 'full'
         : _selectedPeriod;
     TimeOfDay? selectedTime;
+    bool reminderEnabled = false;
 
     showDialog(
       context: context,
@@ -1377,6 +1404,41 @@ class _TaskViewState extends State<TaskView> {
           ),
           content: StatefulBuilder(
             builder: (context, setModalState) {
+              Future<void> pickTime() async {
+                DateTime tempTime = DateTime(
+                  2000,
+                  1,
+                  1,
+                  selectedTime?.hour ?? TimeOfDay.now().hour,
+                  selectedTime?.minute ?? TimeOfDay.now().minute,
+                );
+                await showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: SizedBox(
+                      height: 220,
+                      child: CupertinoDatePicker(
+                        mode: CupertinoDatePickerMode.time,
+                        initialDateTime: tempTime,
+                        use24hFormat: false,
+                        onDateTimeChanged: (dt) => tempTime = dt,
+                      ),
+                    ),
+                  ),
+                );
+                final picked = TimeOfDay(
+                  hour: tempTime.hour,
+                  minute: tempTime.minute,
+                );
+                setModalState(() {
+                  selectedTime = picked;
+                  selectedTaskPeriod = picked.hour < 12 ? 'am' : 'pm';
+                });
+              }
+
               return SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1402,52 +1464,18 @@ class _TaskViewState extends State<TaskView> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    GestureDetector(
-                      onTap: () async {
-                        final picked = await showTimePicker(
-                          context: context,
-                          initialTime: selectedTime ?? TimeOfDay.now(),
-                        );
-                        if (picked != null) {
-                          setModalState(() {
-                            selectedTime = picked;
-                            selectedTaskPeriod = picked.hour < 12 ? 'am' : 'pm';
-                          });
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
-                          ),
+                    TextFormField(
+                      readOnly: true,
+                      onTap: pickTime,
+                      decoration: InputDecoration(
+                        labelText: 'Time (optional)',
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 20,
-                              color: _mutedTextColor,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              selectedTime != null
-                                  ? selectedTime!.format(context)
-                                  : 'Time (optional)',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: selectedTime != null
-                                    ? _onSurfaceColor
-                                    : _mutedTextColor,
-                              ),
-                            ),
-                          ],
-                        ),
+                        suffixIcon: const Icon(Icons.access_time_rounded),
+                      ),
+                      controller: TextEditingController(
+                        text: selectedTime?.format(context) ?? '',
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1475,6 +1503,23 @@ class _TaskViewState extends State<TaskView> {
                         }
                       },
                     ),
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Remind me'),
+                      subtitle: selectedTime == null
+                          ? const Text(
+                              'Set a time above to enable',
+                              style: TextStyle(fontSize: 12),
+                            )
+                          : null,
+                      secondary: const Icon(Icons.notifications_outlined),
+                      value: reminderEnabled,
+                      onChanged: selectedTime == null
+                          ? null
+                          : (val) =>
+                              setModalState(() => reminderEnabled = val),
+                    ),
                   ],
                 ),
               );
@@ -1487,8 +1532,8 @@ class _TaskViewState extends State<TaskView> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD7EEF2),
-                foregroundColor: const Color(0xFF1E5A67),
+                backgroundColor: _kAccentBg,
+                foregroundColor: _kAccentFg,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1510,6 +1555,7 @@ class _TaskViewState extends State<TaskView> {
                       : '',
                   isCompleted: false,
                   period: selectedTaskPeriod,
+                  reminderEnabled: reminderEnabled && selectedTime != null,
                 );
 
                 Navigator.pop(context);
@@ -1533,7 +1579,6 @@ class _TaskViewState extends State<TaskView> {
       ),
       child: Row(
         children: [
-          _buildPeriodButton('Big Tasks', 'big', Icons.rocket_launch_rounded),
           _buildPeriodButton('Full Day', 'full', Icons.check_rounded),
           _buildPeriodButton('AM', 'am', Icons.wb_sunny_rounded),
           _buildPeriodButton('PM', 'pm', Icons.nightlight_round),
@@ -1551,13 +1596,14 @@ class _TaskViewState extends State<TaskView> {
           setState(() {
             _selectedPeriod = value;
           });
-          if (value == 'big') _loadBigTasks();
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: isSelected
+              ? const Duration(milliseconds: 200)
+              : Duration.zero,
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFFD7EEF2) : Colors.transparent,
+            color: isSelected ? _kAccentBg : Colors.transparent,
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -1566,7 +1612,7 @@ class _TaskViewState extends State<TaskView> {
               Icon(
                 icon,
                 size: 18,
-                color: isSelected ? const Color(0xFF1E5A67) : _mutedTextColor,
+                color: isSelected ? _kAccentFg : _mutedTextColor,
               ),
               const SizedBox(width: 6),
               Text(
@@ -1574,7 +1620,7 @@ class _TaskViewState extends State<TaskView> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? const Color(0xFF1E5A67) : _onSurfaceColor,
+                  color: isSelected ? _kAccentFg : _onSurfaceColor,
                 ),
               ),
             ],
@@ -1681,9 +1727,7 @@ class _TaskViewState extends State<TaskView> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _isDark
-                ? Colors.black.withValues(alpha: 0.18)
-                : Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: _isDark ? 0.18 : 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1854,7 +1898,7 @@ class _TaskViewState extends State<TaskView> {
   }
 
   Widget _buildTaskList() {
-    if (_selectedPeriod == 'big') return _buildBigTaskList();
+    if (_showBigTasks) return _buildBigTaskList();
 
     if (_isLoading) {
       return const Expanded(child: Center(child: CircularProgressIndicator()));
@@ -1891,7 +1935,8 @@ class _TaskViewState extends State<TaskView> {
 
     return Expanded(
       child: ListView.builder(
-        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.only(top: 4, bottom: 88),
         itemCount: combined.length,
         itemBuilder: (context, index) {
           final item = combined[index];
@@ -1965,6 +2010,7 @@ class _TaskViewState extends State<TaskView> {
       appBar: AppBar(
         backgroundColor: _surfaceColor,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.history_rounded, color: _onSurfaceColor),
@@ -2008,34 +2054,45 @@ class _TaskViewState extends State<TaskView> {
       ),
       body: Column(
         children: [
-          if (_selectedPeriod != 'big') _buildDateCard(),
-          _buildPeriodSelector(),
+          if (!_showBigTasks) _buildDateCard(),
+          if (!_showBigTasks) _buildPeriodSelector(),
           _buildTaskList(),
         ],
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-        child: SizedBox(
-          height: 56,
-          child: ElevatedButton.icon(
-            onPressed: _selectedPeriod == 'big'
-                ? _showAddBigTaskDialog
-                : _showAddTaskDialog,
-            icon: const Icon(Icons.add_rounded),
-            label: Text(
-              _selectedPeriod == 'big' ? 'Add Big Task' : 'Add Task',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFD7EEF2),
-              foregroundColor: const Color(0xFF1E5A67),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-          ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showBigTasks ? _showAddBigTaskDialog : _showAddTaskDialog,
+        backgroundColor: _kAccentBg,
+        foregroundColor: _kAccentFg,
+        elevation: 2,
+        icon: const Icon(Icons.add_rounded),
+        label: Text(
+          _showBigTasks ? 'Add Big Task' : 'Add Task',
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _showBigTasks ? 1 : 0,
+        onTap: (index) {
+          final goingBig = index == 1;
+          setState(() => _showBigTasks = goingBig);
+          if (goingBig) _loadBigTasks();
+        },
+        elevation: 8,
+        selectedItemColor: _kAccentFg,
+        unselectedItemColor: _mutedTextColor,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.task_alt_rounded),
+            label: 'Tasks',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.layers_rounded),
+            label: 'Big Tasks',
+          ),
+        ],
       ),
     );
   }
