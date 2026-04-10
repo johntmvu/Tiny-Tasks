@@ -63,7 +63,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -76,10 +76,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
           childrenPadding: const EdgeInsets.only(bottom: 8),
           backgroundColor: Colors.white,
           collapsedBackgroundColor: Colors.white,
-          leading: CircleAvatar(
-            radius: 12,
-            backgroundColor: taskColor,
-          ),
+          leading: CircleAvatar(radius: 12, backgroundColor: taskColor),
           title: Row(
             children: [
               Expanded(
@@ -89,15 +86,13 @@ class _BigTaskTileState extends State<BigTaskTile> {
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                     color: allDone ? Colors.black45 : Colors.black87,
-                    decoration:
-                        allDone ? TextDecoration.lineThrough : null,
+                    decoration: allDone ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: _priorityBadgeColor(),
                   borderRadius: BorderRadius.circular(20),
@@ -153,7 +148,9 @@ class _BigTaskTileState extends State<BigTaskTile> {
               : tinyTasks.map((task) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 2),
+                      horizontal: 16,
+                      vertical: 2,
+                    ),
                     child: Row(
                       children: [
                         Checkbox(
@@ -181,7 +178,9 @@ class _BigTaskTileState extends State<BigTaskTile> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(10),
@@ -196,8 +195,11 @@ class _BigTaskTileState extends State<BigTaskTile> {
                         ),
                         if (widget.onTinyTaskEdit != null)
                           IconButton(
-                            icon: const Icon(Icons.edit_outlined,
-                                size: 16, color: Colors.black38),
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              size: 16,
+                              color: Colors.black38,
+                            ),
                             padding: const EdgeInsets.only(left: 4),
                             constraints: const BoxConstraints(),
                             onPressed: () => widget.onTinyTaskEdit!(task),
