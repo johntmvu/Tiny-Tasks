@@ -1827,7 +1827,7 @@ class _TaskViewState extends State<TaskView> {
         },
         elevation: 8,
         selectedItemColor: _kAccentFg,
-        unselectedItemColor: Colors.black45,
+        unselectedItemColor: _mutedTextColor,
         selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
         unselectedLabelStyle: const TextStyle(fontSize: 12),
         items: const [
