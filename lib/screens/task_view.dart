@@ -1427,7 +1427,8 @@ class _TaskViewState extends State<TaskView> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    GestureDetector(
+                    TextFormField(
+                      readOnly: true,
                       onTap: () async {
                         final picked = await showTimePicker(
                           context: context,
@@ -1440,39 +1441,15 @@ class _TaskViewState extends State<TaskView> {
                           });
                         }
                       },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Theme.of(context).dividerColor,
-                          ),
+                      decoration: InputDecoration(
+                        labelText: 'Time (optional)',
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
-                              size: 20,
-                              color: _mutedTextColor,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              selectedTime != null
-                                  ? selectedTime!.format(context)
-                                  : 'Time (optional)',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: selectedTime != null
-                                    ? _onSurfaceColor
-                                    : _mutedTextColor,
-                              ),
-                            ),
-                          ],
-                        ),
+                        suffixIcon: const Icon(Icons.access_time_rounded),
+                      ),
+                      controller: TextEditingController(
+                        text: selectedTime?.format(context) ?? '',
                       ),
                     ),
                     const SizedBox(height: 14),
