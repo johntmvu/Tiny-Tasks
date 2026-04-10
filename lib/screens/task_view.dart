@@ -1346,6 +1346,7 @@ class _TaskViewState extends State<TaskView> {
 
     return Expanded(
       child: ListView.builder(
+        physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.only(top: 4, bottom: 88),
         itemCount: _bigTasks.length,
         itemBuilder: (context, index) {
@@ -1909,6 +1910,7 @@ class _TaskViewState extends State<TaskView> {
 
     return Expanded(
       child: ListView.builder(
+        physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.only(top: 4, bottom: 88),
         itemCount: combined.length,
         itemBuilder: (context, index) {
