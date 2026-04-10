@@ -1,5 +1,3 @@
-
-
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/user.dart';
@@ -198,6 +196,17 @@ class SQLiteHelper {
     return await db.insert('Task', data);
   }
 
+  /// Inserts a task preserving its existing ID (used during Firestore sync).
+  Future<int> insertTaskWithId(Task task) async {
+    final db = await database;
+    final data = task.toMap();
+    return await db.insert(
+      'Task',
+      data,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   Future<Task?> getTask(int id) async {
     final db = await database;
     final maps = await db.query('Task', where: 'Task_ID = ?', whereArgs: [id]);
@@ -244,6 +253,15 @@ class SQLiteHelper {
   Future<int> deleteTask(int id) async {
     final db = await database;
     return await db.delete('Task', where: 'Task_ID = ?', whereArgs: [id]);
+  }
+
+  Future<Set<String>> getTaskDatesForUser(int userId) async {
+    final db = await database;
+    final maps = await db.rawQuery(
+      'SELECT DISTINCT Date FROM Task WHERE User_ID = ? AND Date != ""',
+      [userId],
+    );
+    return maps.map((m) => m['Date'] as String).toSet();
   }
 
   Future<List<Task>> getTasksByBigTask(int bigTaskId) async {

@@ -82,10 +82,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
           childrenPadding: const EdgeInsets.only(bottom: 8),
           backgroundColor: cardColor,
           collapsedBackgroundColor: cardColor,
-          leading: CircleAvatar(
-            radius: 12,
-            backgroundColor: taskColor,
-          ),
+          leading: CircleAvatar(radius: 12, backgroundColor: taskColor),
           title: Row(
             children: [
               Expanded(
@@ -95,15 +92,13 @@ class _BigTaskTileState extends State<BigTaskTile> {
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                     color: allDone ? onSurfaceVariant : onSurface,
-                    decoration:
-                        allDone ? TextDecoration.lineThrough : null,
+                    decoration: allDone ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: _priorityBadgeColor(),
                   borderRadius: BorderRadius.circular(20),
@@ -159,7 +154,7 @@ class _BigTaskTileState extends State<BigTaskTile> {
               : tinyTasks.map((task) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                      horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
                         Checkbox(
@@ -185,7 +180,9 @@ class _BigTaskTileState extends State<BigTaskTile> {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(10),

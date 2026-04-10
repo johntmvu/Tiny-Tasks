@@ -32,9 +32,9 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final credential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
+          );
 
       final newUser = user_models.User(
         name: _emailController.text.trim().split('@')[0],
@@ -47,10 +47,8 @@ class _LoginPageState extends State<LoginPage> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TaskView(
-            userId: userId,
-            firebaseUserId: credential.user!.uid,
-          ),
+          builder: (_) =>
+              TaskView(userId: userId, firebaseUserId: credential.user!.uid),
         ),
       );
     } on FirebaseAuthException catch (e) {
@@ -103,10 +101,8 @@ class _LoginPageState extends State<LoginPage> {
 
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => TaskView(
-              userId: userId,
-              firebaseUserId: firebaseUid,
-            ),
+            builder: (_) =>
+                TaskView(userId: userId, firebaseUserId: firebaseUid),
           ),
         );
       } else {
@@ -116,10 +112,8 @@ class _LoginPageState extends State<LoginPage> {
 
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => TaskView(
-              userId: user.userId!,
-              firebaseUserId: firebaseUid,
-            ),
+            builder: (_) =>
+                TaskView(userId: user.userId!, firebaseUserId: firebaseUid),
           ),
         );
       }
@@ -212,16 +206,9 @@ class _LoginPageState extends State<LoginPage> {
 
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(
-        color: isDark ? Colors.white70 : Colors.black54,
-      ),
-      hintStyle: TextStyle(
-        color: isDark ? Colors.white38 : Colors.black38,
-      ),
-      prefixIcon: Icon(
-        icon,
-        color: isDark ? Colors.white70 : Colors.black54,
-      ),
+      labelStyle: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+      hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
+      prefixIcon: Icon(icon, color: isDark ? Colors.white70 : Colors.black54),
       filled: true,
       fillColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       border: OutlineInputBorder(
@@ -236,10 +223,7 @@ class _LoginPageState extends State<LoginPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: Color(0xFF8ECFD8),
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: Color(0xFF8ECFD8), width: 1.5),
       ),
     );
   }
@@ -269,7 +253,7 @@ class _LoginPageState extends State<LoginPage> {
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.18 : 0.06),
+                  color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
                   blurRadius: 18,
                   offset: const Offset(0, 8),
                 ),
@@ -313,9 +297,7 @@ class _LoginPageState extends State<LoginPage> {
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   decoration: _inputDecoration(
                     context,
                     "Email",
@@ -326,9 +308,7 @@ class _LoginPageState extends State<LoginPage> {
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black,
-                  ),
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black),
                   decoration: _inputDecoration(
                     context,
                     "Password",
@@ -369,10 +349,7 @@ class _LoginPageState extends State<LoginPage> {
                   onPressed: _isLoading ? null : signUp,
                   child: const Text(
                     "Create Account",
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -382,12 +359,15 @@ class _LoginPageState extends State<LoginPage> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _signInWithGoogle,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                      backgroundColor: isDark
+                          ? const Color(0xFF1E1E2E)
+                          : Colors.white,
                       foregroundColor: theme.colorScheme.onSurface,
                       elevation: 0,
                       side: BorderSide(
-                        color: isDark ? Colors.white24 : const Color(0xFFE2E8F0),
+                        color: isDark
+                            ? Colors.white24
+                            : const Color(0xFFE2E8F0),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(18),

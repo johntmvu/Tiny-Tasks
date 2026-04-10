@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class GoogleCalendarService {
@@ -16,9 +17,7 @@ class GoogleCalendarService {
       "start": {
         "date": date, // yyyy-MM-dd
       },
-      "end": {
-        "date": date,
-      },
+      "end": {"date": date},
     };
 
     final response = await http.post(
@@ -30,8 +29,8 @@ class GoogleCalendarService {
       body: jsonEncode(event),
     );
 
-    print("STATUS: ${response.statusCode}");
-    print("BODY: ${response.body}");
+    debugPrint('STATUS: ${response.statusCode}');
+    debugPrint('BODY: ${response.body}');
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception("Failed to create calendar event: ${response.body}");

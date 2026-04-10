@@ -43,8 +43,9 @@ class _HistoryViewState extends State<HistoryView> {
     final sorted = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     setState(() {
-      _userInitial =
-          (user?.name.isNotEmpty == true) ? user!.name[0].toUpperCase() : '?';
+      _userInitial = (user?.name.isNotEmpty == true)
+          ? user!.name[0].toUpperCase()
+          : '?';
       _tasksByDate = grouped;
       _sortedDates = sorted;
       _isLoading = false;
@@ -137,58 +138,59 @@ class _HistoryViewState extends State<HistoryView> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _sortedDates.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.history_rounded,
-                        size: 68,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No completed tasks yet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.history_rounded,
+                    size: 68,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: _sortedDates.length,
-                  itemBuilder: (context, i) {
-                    final date = _sortedDates[i];
-                    final tasks = _tasksByDate[date]!;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                          child: Text(
-                            _dateHeader(date),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No completed tasks yet',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _sortedDates.length,
+              itemBuilder: (context, i) {
+                final date = _sortedDates[i];
+                final tasks = _tasksByDate[date]!;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                      child: Text(
+                        _dateHeader(date),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurfaceVariant,
+                          letterSpacing: 0.2,
                         ),
-                        ...tasks.map((task) => _buildTaskRow(task, theme, isDark)),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                    ),
+                    ...tasks.map((task) => _buildTaskRow(task, theme, isDark)),
+                  ],
+                );
+              },
+            ),
     );
   }
 
   Widget _buildTaskRow(Task task, ThemeData theme, bool isDark) {
-    final isUnchecked = task.id != null && _recentlyUnchecked.contains(task.id!);
+    final isUnchecked =
+        task.id != null && _recentlyUnchecked.contains(task.id!);
 
     if (isUnchecked) {
       return Container(
