@@ -56,12 +56,18 @@ class _TaskViewState extends State<TaskView> {
 
   Future<void> _loadTaskDates() async {
     if (widget.userId == null) return;
-    final dateStrings = await _taskRepository.getTaskDatesForUser(widget.userId!);
+    final dateStrings = await _taskRepository.getTaskDatesForUser(
+      widget.userId!,
+    );
     if (mounted) {
       setState(() {
         _taskDates = dateStrings.map((s) {
           final parts = s.split('-');
-          return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+          return DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
         }).toSet();
       });
     }
@@ -235,7 +241,7 @@ class _TaskViewState extends State<TaskView> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -526,7 +532,7 @@ class _TaskViewState extends State<TaskView> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -556,7 +562,8 @@ class _TaskViewState extends State<TaskView> {
                       controller: descriptionController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        labelText: 'Description (optional)',
+                        labelText: 'Description',
+                        hintText: 'Describe your task',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -675,7 +682,7 @@ class _TaskViewState extends State<TaskView> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -690,7 +697,8 @@ class _TaskViewState extends State<TaskView> {
               onPressed: () async {
                 final title = titleController.text.trim();
                 if (title.isEmpty) return;
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+                final scaffoldMessenger = ScaffoldMessenger.of(dialogContext);
                 try {
                   await _bigTaskRepository.updateBigTask(
                     bigTask.copyWith(
@@ -707,11 +715,9 @@ class _TaskViewState extends State<TaskView> {
                   await _loadBigTasks();
                 } catch (e) {
                   debugPrint('Error updating big task: $e');
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to update big task: $e')),
-                    );
-                  }
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('Failed to update big task: $e')),
+                  );
                 }
               },
               child: const Text('Save'),
@@ -862,7 +868,7 @@ class _TaskViewState extends State<TaskView> {
                       controller: descriptionController,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        labelText: 'Description (optional)',
+                        labelText: 'Description',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -994,13 +1000,23 @@ class _TaskViewState extends State<TaskView> {
               ),
               onPressed: () {
                 final title = titleController.text.trim();
-                if (title.isEmpty || selectedDueDate == null) return;
+                final description = descriptionController.text.trim();
+                if (title.isEmpty ||
+                    description.isEmpty ||
+                    selectedDueDate == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Title, description, and due date are required.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
                 Navigator.pop(context);
                 _createBigTaskWithDecomposition(
                   title: title,
-                  description: descriptionController.text.trim().isEmpty
-                      ? null
-                      : descriptionController.text.trim(),
+                  description: description,
                   priority: selectedPriority,
                   dueDate: selectedDueDate!,
                   color: selectedColor,
@@ -1016,7 +1032,7 @@ class _TaskViewState extends State<TaskView> {
 
   Future<void> _createBigTaskWithDecomposition({
     required String title,
-    String? description,
+    required String description,
     required String priority,
     required String dueDate,
     required String color,
@@ -1232,26 +1248,40 @@ class _TaskViewState extends State<TaskView> {
     required List<String> dates,
     required int bigTaskId,
   }) async {
-    for (int i = 0; i < subtasks.length; i++) {
-      if (!checked[i]) continue;
-      final task = Task(
-        userId: widget.userId,
-        firebaseUserId: widget.firebaseUserId,
-        title: subtasks[i]['title'] ?? '',
-        date: dates[i],
-        period: 'full',
-        bigTaskId: bigTaskId,
-      );
-      try {
+    try {
+      for (int i = 0; i < subtasks.length; i++) {
+        if (!checked[i]) continue;
+        final task = Task(
+          userId: widget.userId,
+          firebaseUserId: widget.firebaseUserId,
+          title: subtasks[i]['title'] ?? '',
+          date: dates[i],
+          period: 'full',
+          bigTaskId: bigTaskId,
+        );
+
         await _taskRepository.createTask(
           task,
           firebaseUserId: widget.firebaseUserId,
         );
-      } catch (e) {
-        debugPrint('Error saving subtask: $e');
+
+        if (widget.accessToken != null) {
+          await GoogleCalendarService().createEvent(
+            accessToken: widget.accessToken!,
+            title: task.title,
+            date: task.date,
+          );
+        }
+      }
+      await _loadTasks();
+    } catch (e) {
+      debugPrint('Error saving subtask: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save subtasks: $e')));
       }
     }
-    await _loadTasks();
   }
 
   Widget _buildBigTaskList() {
@@ -1571,59 +1601,68 @@ class _TaskViewState extends State<TaskView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Padding(
-                padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
-                child: TableCalendar(
-                  firstDay: DateTime.utc(2020, 1, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  focusedDay: focusedDay,
-                  selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
-                  enabledDayPredicate: (day) {
-                    final now = DateTime.now();
-                    final today = DateTime(now.year, now.month, now.day);
-                    final normalized = DateTime(day.year, day.month, day.day);
-                    return !normalized.isBefore(today);
-                  },
-                  onDaySelected: (selectedDay, newFocusedDay) {
-                    setState(() {
-                      _selectedDate = selectedDay;
-                    });
-                    Navigator.of(context).pop();
-                    _loadTasks();
-                  },
-                  onPageChanged: (newFocused) {
-                    setModalState(() => focusedDay = newFocused);
-                  },
-                  eventLoader: (day) {
-                    final normalized = DateTime(day.year, day.month, day.day);
-                    return _taskDates.any((d) => isSameDay(d, normalized))
-                        ? [true]
-                        : [];
-                  },
-                  calendarStyle: CalendarStyle(
-                    todayDecoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.3),
-                      shape: BoxShape.circle,
-                    ),
-                    selectedDecoration: BoxDecoration(
-                      color: primary,
-                      shape: BoxShape.circle,
-                    ),
-                    markerDecoration: BoxDecoration(
-                      color: isDark ? Colors.tealAccent : primary,
-                      shape: BoxShape.circle,
-                    ),
-                    markersMaxCount: 1,
-                    outsideDaysVisible: false,
-                    disabledTextStyle: TextStyle(
-                      color: isDark ? Colors.white24 : Colors.black26,
+                    padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                    child: TableCalendar(
+                      firstDay: DateTime.utc(2020, 1, 1),
+                      lastDay: DateTime.utc(2030, 12, 31),
+                      focusedDay: focusedDay,
+                      selectedDayPredicate: (day) =>
+                          isSameDay(day, _selectedDate),
+                      enabledDayPredicate: (day) {
+                        final now = DateTime.now();
+                        final today = DateTime(now.year, now.month, now.day);
+                        final normalized = DateTime(
+                          day.year,
+                          day.month,
+                          day.day,
+                        );
+                        return !normalized.isBefore(today);
+                      },
+                      onDaySelected: (selectedDay, newFocusedDay) {
+                        setState(() {
+                          _selectedDate = selectedDay;
+                        });
+                        Navigator.of(context).pop();
+                        _loadTasks();
+                      },
+                      onPageChanged: (newFocused) {
+                        setModalState(() => focusedDay = newFocused);
+                      },
+                      eventLoader: (day) {
+                        final normalized = DateTime(
+                          day.year,
+                          day.month,
+                          day.day,
+                        );
+                        return _taskDates.any((d) => isSameDay(d, normalized))
+                            ? [true]
+                            : [];
+                      },
+                      calendarStyle: CalendarStyle(
+                        todayDecoration: BoxDecoration(
+                          color: primary.withValues(alpha: 0.3),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedDecoration: BoxDecoration(
+                          color: primary,
+                          shape: BoxShape.circle,
+                        ),
+                        markerDecoration: BoxDecoration(
+                          color: isDark ? Colors.tealAccent : primary,
+                          shape: BoxShape.circle,
+                        ),
+                        markersMaxCount: 1,
+                        outsideDaysVisible: false,
+                        disabledTextStyle: TextStyle(
+                          color: isDark ? Colors.white24 : Colors.black26,
+                        ),
+                      ),
+                      headerStyle: const HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                      ),
                     ),
                   ),
-                  headerStyle: const HeaderStyle(
-                    formatButtonVisible: false,
-                    titleCentered: true,
-                  ),
-                ),
-              ),
                 ],
               ),
             );
@@ -1643,8 +1682,8 @@ class _TaskViewState extends State<TaskView> {
         boxShadow: [
           BoxShadow(
             color: _isDark
-                ? Colors.black.withOpacity(0.18)
-                : Colors.black.withOpacity(0.05),
+                ? Colors.black.withValues(alpha: 0.18)
+                : Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1718,8 +1757,8 @@ class _TaskViewState extends State<TaskView> {
           boxShadow: [
             BoxShadow(
               color: _isDark
-                  ? Colors.black.withOpacity(0.18)
-                  : Colors.black.withOpacity(0.04),
+                  ? Colors.black.withValues(alpha: 0.18)
+                  : Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1771,8 +1810,8 @@ class _TaskViewState extends State<TaskView> {
           boxShadow: [
             BoxShadow(
               color: _isDark
-                  ? Colors.black.withOpacity(0.18)
-                  : Colors.black.withOpacity(0.04),
+                  ? Colors.black.withValues(alpha: 0.18)
+                  : Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

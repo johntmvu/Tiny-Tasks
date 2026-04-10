@@ -1,7 +1,4 @@
-
-
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite/sqlite_api.dart' show ConflictAlgorithm;
 import 'package:path/path.dart';
 import '../models/user.dart';
 import '../models/task.dart';

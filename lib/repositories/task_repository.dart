@@ -64,7 +64,11 @@ class TaskRepository {
     final result = await _dbHelper.deleteTask(id);
 
     if (firebaseUserId != null) {
-      await _tasksCollection(firebaseUserId).doc(id.toString()).delete();
+      try {
+        await _tasksCollection(firebaseUserId).doc(id.toString()).delete();
+      } on FirebaseException catch (e) {
+        if (e.code != 'not-found') rethrow;
+      }
     }
 
     return result;
