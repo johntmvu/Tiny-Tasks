@@ -118,12 +118,17 @@ class TaskRepository {
     final snapshot = await _tasksCollection(firebaseUserId).get();
     final firestoreIds = <int>{};
 
+    // Pre-fetch local BigTask IDs so we can null out stale references
+    final localBigTasks = await _dbHelper.getBigTasksByUser(localUserId);
+    final localBigTaskIds = localBigTasks.map((bt) => bt.id).toSet();
+
     for (final doc in snapshot.docs) {
       final firestoreId = int.tryParse(doc.id);
       if (firestoreId == null) continue;
       firestoreIds.add(firestoreId);
 
       final data = doc.data() as Map<String, dynamic>;
+      final rawBigTaskId = (data['bigTaskId'] as num?)?.toInt();
 
       final task = Task(
         id: firestoreId,
@@ -137,7 +142,9 @@ class TaskRepository {
         createdAt:
             (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         period: data['period'] ?? 'full',
-        bigTaskId: data['bigTaskId'] as int?,
+        bigTaskId: (rawBigTaskId != null && localBigTaskIds.contains(rawBigTaskId))
+            ? rawBigTaskId
+            : null,
         isRescheduled: data['isRescheduled'] ?? false,
       );
 
