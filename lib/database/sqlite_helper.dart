@@ -288,6 +288,17 @@ class SQLiteHelper {
     return await db.insert('BigTask', data);
   }
 
+  /// Inserts a big task preserving its existing ID (used during Firestore sync).
+  Future<int> insertBigTaskWithId(BigTask bigTask) async {
+    final db = await database;
+    final data = bigTask.toMap();
+    return await db.insert(
+      'BigTask',
+      data,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   Future<BigTask?> getBigTask(int id) async {
     final db = await database;
     final maps = await db.query(
