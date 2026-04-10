@@ -61,4 +61,31 @@ class BigTaskRepository {
   Future<List<Task>> getTinyTasksForBigTask(int bigTaskId) async {
     return await _dbHelper.getTasksByBigTask(bigTaskId);
   }
+
+  Future<void> syncFromFirestore(String firebaseUserId, int localUserId) async {
+    final snapshot = await _bigTasksCollection(firebaseUserId).get();
+    final firestoreIds = <int>{};
+
+    for (final doc in snapshot.docs) {
+      final firestoreId = int.tryParse(doc.id);
+      if (firestoreId == null) continue;
+      firestoreIds.add(firestoreId);
+
+      final data = doc.data() as Map<String, dynamic>;
+      final bigTask = BigTask.fromFirestore(doc.id, data).copyWith(
+        userId: localUserId,
+      );
+
+      await _dbHelper.insertBigTaskWithId(bigTask);
+    }
+
+    final localBigTasks = await _dbHelper.getBigTasksByUser(localUserId);
+    for (final localBigTask in localBigTasks) {
+      final localId = localBigTask.id;
+      if (localId == null) continue;
+      if (!firestoreIds.contains(localId)) {
+        await _dbHelper.deleteBigTask(localId);
+      }
+    }
+  }
 }

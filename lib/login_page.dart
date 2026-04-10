@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'screens/task_view.dart';
 import 'repositories/user_repository.dart';
 import 'repositories/task_repository.dart';
+import 'repositories/big_task_repository.dart';
 import 'models/user.dart' as user_models;
 import 'services/google_auth_service.dart';
 
@@ -19,6 +20,7 @@ class _LoginPageState extends State<LoginPage> {
 
   final _userRepository = UserRepository();
   final _taskRepository = TaskRepository();
+  final _bigTaskRepository = BigTaskRepository();
 
   String _errorMessage = "";
   bool _isLoading = false;
@@ -96,6 +98,7 @@ class _LoginPageState extends State<LoginPage> {
 
         final userId = await _userRepository.createUser(newUser);
 
+        await _bigTaskRepository.syncFromFirestore(firebaseUid, userId);
         await _taskRepository.syncFromFirestore(firebaseUid, userId);
 
         if (!mounted) return;
@@ -107,6 +110,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
       } else {
+        await _bigTaskRepository.syncFromFirestore(firebaseUid, user.userId!);
         await _taskRepository.syncFromFirestore(firebaseUid, user.userId!);
 
         if (!mounted) return;
@@ -171,6 +175,7 @@ class _LoginPageState extends State<LoginPage> {
         userId = existingUser.userId!;
       }
 
+      await _bigTaskRepository.syncFromFirestore(firebaseUid, userId);
       await _taskRepository.syncFromFirestore(firebaseUid, userId);
 
       if (!mounted) return;
