@@ -142,12 +142,18 @@ class SQLiteHelper {
       );
     }
     if (oldVersion < 8) {
-      await db.execute(
-        'ALTER TABLE Task ADD COLUMN Reminder_Enabled INTEGER NOT NULL DEFAULT 0',
-      );
-      await db.execute(
-        'ALTER TABLE Task ADD COLUMN Notification_ID INTEGER',
-      );
+      final columns = await db.rawQuery('PRAGMA table_info(Task)');
+      final columnNames = columns.map((c) => c['name'] as String).toSet();
+      if (!columnNames.contains('Reminder_Enabled')) {
+        await db.execute(
+          'ALTER TABLE Task ADD COLUMN Reminder_Enabled INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+      if (!columnNames.contains('Notification_ID')) {
+        await db.execute(
+          'ALTER TABLE Task ADD COLUMN Notification_ID INTEGER',
+        );
+      }
     }
   }
 
