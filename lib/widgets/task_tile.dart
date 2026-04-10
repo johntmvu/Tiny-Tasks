@@ -99,13 +99,12 @@ class TaskTile extends StatelessWidget {
             ],
             const SizedBox(height: 10),
 
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: _periodColor(),
                     borderRadius: BorderRadius.circular(20),
@@ -119,13 +118,9 @@ class TaskTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (task.isRescheduled) ...[
-                  const SizedBox(width: 8),
+                if (task.isRescheduled)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: task.bigTaskId != null
                           ? const Color(0xFFE3F2FD)
@@ -143,9 +138,27 @@ class TaskTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                ],
               ],
             ),
+            if (task.date.isNotEmpty || task.time.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(Icons.access_time_rounded, size: 12, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(
+                    [
+                      if (task.date.isNotEmpty) task.date,
+                      if (task.time.isNotEmpty) task.time,
+                    ].join('  ·  '),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
         trailing: IconButton(

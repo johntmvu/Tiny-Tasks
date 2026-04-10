@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -1387,16 +1388,8 @@ class _TaskViewState extends State<TaskView> {
     String selectedTaskPeriod = _selectedPeriod == 'big'
         ? 'full'
         : _selectedPeriod;
-    bool timeEnabled = false;
-    int selectedHour = 1;
-    int selectedMinute = 0;
-    bool selectedAmPm = true; // true = AM
+    TimeOfDay? selectedTime;
     bool reminderEnabled = false;
-
-    final hourController = FixedExtentScrollController(initialItem: 0);
-    final minuteController = FixedExtentScrollController(initialItem: 0);
-    final amPmController = FixedExtentScrollController(initialItem: 0);
-
 
     showDialog(
       context: context,
@@ -1411,45 +1404,39 @@ class _TaskViewState extends State<TaskView> {
           ),
           content: StatefulBuilder(
             builder: (context, setModalState) {
-              final theme = Theme.of(context);
-
-              Widget buildWheel({
-                required FixedExtentScrollController controller,
-                required List<String> items,
-                required ValueChanged<int> onChanged,
-              }) {
-                return SizedBox(
-                  height: 100,
-                  width: 60,
-                  child: ListWheelScrollView.useDelegate(
-                    controller: controller,
-                    itemExtent: 36,
-                    perspective: 0.003,
-                    diameterRatio: 1.4,
-                    physics: const FixedExtentScrollPhysics(),
-                    onSelectedItemChanged: onChanged,
-                    childDelegate: ListWheelChildBuilderDelegate(
-                      childCount: items.length,
-                      builder: (context, index) {
-                        final selected = controller.selectedItem == index;
-                        return Center(
-                          child: Text(
-                            items[index],
-                            style: TextStyle(
-                              fontSize: selected ? 20 : 15,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                              color: selected
-                                  ? theme.colorScheme.onSurface
-                                  : theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        );
-                      },
+              Future<void> pickTime() async {
+                DateTime tempTime = DateTime(
+                  2000,
+                  1,
+                  1,
+                  selectedTime?.hour ?? TimeOfDay.now().hour,
+                  selectedTime?.minute ?? TimeOfDay.now().minute,
+                );
+                await showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: SizedBox(
+                      height: 220,
+                      child: CupertinoDatePicker(
+                        mode: CupertinoDatePickerMode.time,
+                        initialDateTime: tempTime,
+                        use24hFormat: false,
+                        onDateTimeChanged: (dt) => tempTime = dt,
+                      ),
                     ),
                   ),
                 );
+                final picked = TimeOfDay(
+                  hour: tempTime.hour,
+                  minute: tempTime.minute,
+                );
+                setModalState(() {
+                  selectedTime = picked;
+                  selectedTaskPeriod = picked.hour < 12 ? 'am' : 'pm';
+                });
               }
 
               return SingleChildScrollView(
@@ -1477,85 +1464,20 @@ class _TaskViewState extends State<TaskView> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Time',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        Switch(
-                          value: timeEnabled,
-                          onChanged: (val) =>
-                              setModalState(() => timeEnabled = val),
-                        ),
-                      ],
-                    ),
-                    if (timeEnabled) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest,
+                    TextFormField(
+                      readOnly: true,
+                      onTap: pickTime,
+                      decoration: InputDecoration(
+                        labelText: 'Time (optional)',
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(
-                              height: 36,
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surface,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                buildWheel(
-                                  controller: hourController,
-                                  items: List.generate(12, (i) => '${i + 1}'),
-                                  onChanged: (i) => setModalState(() {
-                                    selectedHour = i + 1;
-                                    selectedTaskPeriod =
-                                        selectedAmPm ? 'am' : 'pm';
-                                  }),
-                                ),
-                                Text(
-                                  ':',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                                buildWheel(
-                                  controller: minuteController,
-                                  items: List.generate(
-                                      60, (i) => i.toString().padLeft(2, '0')),
-                                  onChanged: (i) =>
-                                      setModalState(() => selectedMinute = i),
-                                ),
-                                const SizedBox(width: 8),
-                                buildWheel(
-                                  controller: amPmController,
-                                  items: const ['AM', 'PM'],
-                                  onChanged: (i) => setModalState(() {
-                                    selectedAmPm = i == 0;
-                                    selectedTaskPeriod =
-                                        selectedAmPm ? 'am' : 'pm';
-                                  }),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                        suffixIcon: const Icon(Icons.access_time_rounded),
                       ),
-                    ],
+                      controller: TextEditingController(
+                        text: selectedTime?.format(context) ?? '',
+                      ),
+                    ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       initialValue: selectedTaskPeriod,
@@ -1585,15 +1507,15 @@ class _TaskViewState extends State<TaskView> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Remind me'),
-                      subtitle: !timeEnabled
+                      subtitle: selectedTime == null
                           ? const Text(
-                              'Enable time above to set a reminder',
+                              'Set a time above to enable',
                               style: TextStyle(fontSize: 12),
                             )
                           : null,
                       secondary: const Icon(Icons.notifications_outlined),
                       value: reminderEnabled,
-                      onChanged: !timeEnabled
+                      onChanged: selectedTime == null
                           ? null
                           : (val) =>
                               setModalState(() => reminderEnabled = val),
@@ -1622,26 +1544,18 @@ class _TaskViewState extends State<TaskView> {
                 final description = descriptionController.text.trim();
                 if (title.isEmpty) return;
 
-                TimeOfDay? resolvedTime;
-                if (timeEnabled) {
-                  final hour = selectedAmPm
-                      ? (selectedHour % 12)
-                      : (selectedHour % 12) + 12;
-                  resolvedTime = TimeOfDay(hour: hour, minute: selectedMinute);
-                }
-
                 final newTask = Task(
                   userId: widget.userId,
                   firebaseUserId: widget.firebaseUserId,
                   title: title,
                   description: description.isEmpty ? null : description,
                   date: _dateKey,
-                  time: resolvedTime != null
-                      ? resolvedTime.format(context)
+                  time: selectedTime != null
+                      ? selectedTime!.format(context)
                       : '',
                   isCompleted: false,
                   period: selectedTaskPeriod,
-                  reminderEnabled: reminderEnabled && timeEnabled,
+                  reminderEnabled: reminderEnabled && selectedTime != null,
                 );
 
                 Navigator.pop(context);
