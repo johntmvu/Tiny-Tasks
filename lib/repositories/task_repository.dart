@@ -42,6 +42,10 @@ class TaskRepository {
     return await _dbHelper.getTasksByUserAndDate(userId, date);
   }
 
+  Future<Set<String>> getTaskDatesForUser(int userId) async {
+    return await _dbHelper.getTaskDatesForUser(userId);
+  }
+
   /// Update task locally, then sync to Firestore.
   Future<int> updateTask(Task task, {String? firebaseUserId}) async {
     final result = await _dbHelper.updateTask(task);

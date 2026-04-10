@@ -236,6 +236,15 @@ class SQLiteHelper {
     return await db.delete('Task', where: 'Task_ID = ?', whereArgs: [id]);
   }
 
+  Future<Set<String>> getTaskDatesForUser(int userId) async {
+    final db = await database;
+    final maps = await db.rawQuery(
+      'SELECT DISTINCT Date FROM Task WHERE User_ID = ? AND Date != ""',
+      [userId],
+    );
+    return maps.map((m) => m['Date'] as String).toSet();
+  }
+
   Future<List<Task>> getTasksByBigTask(int bigTaskId) async {
     final db = await database;
     final maps = await db.query(

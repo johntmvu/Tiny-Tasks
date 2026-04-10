@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../models/task.dart';
 import '../models/big_task.dart';
 import '../repositories/task_repository.dart';
@@ -41,6 +42,7 @@ class _TaskViewState extends State<TaskView> {
   bool _isLoadingBigTasks = false;
   final Set<int> _recentlyCompleted = {};
   final List<({Task task, int index})> _recentlyDeleted = [];
+  Set<DateTime> _taskDates = {};
 
   @override
   void initState() {
@@ -48,7 +50,21 @@ class _TaskViewState extends State<TaskView> {
     _rescheduleOverdueTasks().then((_) {
       _loadTasks();
       _loadBigTasks();
+      _loadTaskDates();
     });
+  }
+
+  Future<void> _loadTaskDates() async {
+    if (widget.userId == null) return;
+    final dateStrings = await _taskRepository.getTaskDatesForUser(widget.userId!);
+    if (mounted) {
+      setState(() {
+        _taskDates = dateStrings.map((s) {
+          final parts = s.split('-');
+          return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+        }).toSet();
+      });
+    }
   }
 
   String get _formattedDate =>
@@ -86,6 +102,7 @@ class _TaskViewState extends State<TaskView> {
       setState(() {
         _tasks = dateTasks;
       });
+      _loadTaskDates();
     } catch (e) {
       debugPrint('Error loading tasks: $e');
       if (mounted) {
@@ -1537,6 +1554,85 @@ class _TaskViewState extends State<TaskView> {
     );
   }
 
+  void _showCalendarPicker() {
+    final isDark = _isDark;
+    final primary = const Color(0xFF1E5A67);
+    showDialog(
+      context: context,
+      builder: (context) {
+        DateTime focusedDay = _selectedDate;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                padding: const EdgeInsets.fromLTRB(8, 16, 8, 8),
+                child: TableCalendar(
+                  firstDay: DateTime.utc(2020, 1, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  focusedDay: focusedDay,
+                  selectedDayPredicate: (day) => isSameDay(day, _selectedDate),
+                  enabledDayPredicate: (day) {
+                    final now = DateTime.now();
+                    final today = DateTime(now.year, now.month, now.day);
+                    final normalized = DateTime(day.year, day.month, day.day);
+                    return !normalized.isBefore(today);
+                  },
+                  onDaySelected: (selectedDay, newFocusedDay) {
+                    setState(() {
+                      _selectedDate = selectedDay;
+                    });
+                    Navigator.of(context).pop();
+                    _loadTasks();
+                  },
+                  onPageChanged: (newFocused) {
+                    setModalState(() => focusedDay = newFocused);
+                  },
+                  eventLoader: (day) {
+                    final normalized = DateTime(day.year, day.month, day.day);
+                    return _taskDates.any((d) => isSameDay(d, normalized))
+                        ? [true]
+                        : [];
+                  },
+                  calendarStyle: CalendarStyle(
+                    todayDecoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    selectedDecoration: BoxDecoration(
+                      color: primary,
+                      shape: BoxShape.circle,
+                    ),
+                    markerDecoration: BoxDecoration(
+                      color: isDark ? Colors.tealAccent : primary,
+                      shape: BoxShape.circle,
+                    ),
+                    markersMaxCount: 1,
+                    outsideDaysVisible: false,
+                    disabledTextStyle: TextStyle(
+                      color: isDark ? Colors.white24 : Colors.black26,
+                    ),
+                  ),
+                  headerStyle: const HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                  ),
+                ),
+              ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildDateCard() {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -1564,12 +1660,15 @@ class _TaskViewState extends State<TaskView> {
               color: _onSurfaceColor,
             ),
           ),
-          Text(
-            _formattedDate,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: _onSurfaceColor,
+          GestureDetector(
+            onTap: _showCalendarPicker,
+            child: Text(
+              _formattedDate,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: _onSurfaceColor,
+              ),
             ),
           ),
           IconButton(
