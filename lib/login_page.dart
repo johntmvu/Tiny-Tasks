@@ -21,10 +21,99 @@ class _LoginPageState extends State<LoginPage> {
   final _userRepository = UserRepository();
   final _taskRepository = TaskRepository();
   final _bigTaskRepository = BigTaskRepository();
+  final _googleAuthService = GoogleAuthService();
 
   String _errorMessage = "";
   bool _isLoading = false;
   bool _isGoogleLoading = false;
+  bool _isCheckingSession = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+
+    if (currentUser == null) {
+      if (mounted) {
+        setState(() {
+          _isCheckingSession = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      String? accessToken;
+      final isGoogleUser = currentUser.providerData.any(
+        (provider) => provider.providerId == 'google.com',
+      );
+
+      if (isGoogleUser) {
+        accessToken = await _googleAuthService.getAccessTokenSilently();
+      }
+
+      await _completeSignIn(user: currentUser, accessToken: accessToken);
+    } catch (e) {
+      await FirebaseAuth.instance.signOut();
+
+      if (mounted) {
+        setState(() {
+          _errorMessage =
+              "Couldn't restore your session. Please sign in again.";
+          _isCheckingSession = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _completeSignIn({
+    required User user,
+    String? accessToken,
+  }) async {
+    final firebaseUid = user.uid;
+    final email = user.email ?? "";
+
+    final existingUser = await _userRepository.getUserByEmail(email);
+
+    int userId;
+
+    if (existingUser == null) {
+      final newUser = user_models.User(
+        name: user.displayName ?? email.split('@').first,
+        email: email,
+      );
+
+      userId = await _userRepository.createUser(newUser);
+    } else {
+      userId = existingUser.userId!;
+    }
+
+    await _bigTaskRepository.syncFromFirestore(firebaseUid, userId);
+    await _taskRepository.syncFromFirestore(firebaseUid, userId);
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => TaskView(
+          userId: userId,
+          firebaseUserId: firebaseUid,
+          accessToken: accessToken,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> signUp() async {
     setState(() {
@@ -38,22 +127,7 @@ class _LoginPageState extends State<LoginPage> {
             email: _emailController.text.trim(),
             password: _passwordController.text.trim(),
           );
-
-      final newUser = user_models.User(
-        name: _emailController.text.trim().split('@')[0],
-        email: _emailController.text.trim(),
-      );
-
-      final userId = await _userRepository.createUser(newUser);
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) =>
-              TaskView(userId: userId, firebaseUserId: credential.user!.uid),
-        ),
-      );
+      await _completeSignIn(user: credential.user!);
     } on FirebaseAuthException catch (e) {
       setState(() {
         _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
@@ -83,45 +157,7 @@ class _LoginPageState extends State<LoginPage> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-
-      final firebaseUid = FirebaseAuth.instance.currentUser!.uid;
-
-      final user = await _userRepository.getUserByEmail(
-        _emailController.text.trim(),
-      );
-
-      if (user == null) {
-        final newUser = user_models.User(
-          name: _emailController.text.trim().split('@')[0],
-          email: _emailController.text.trim(),
-        );
-
-        final userId = await _userRepository.createUser(newUser);
-
-        await _bigTaskRepository.syncFromFirestore(firebaseUid, userId);
-        await _taskRepository.syncFromFirestore(firebaseUid, userId);
-
-        if (!mounted) return;
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) =>
-                TaskView(userId: userId, firebaseUserId: firebaseUid),
-          ),
-        );
-      } else {
-        await _bigTaskRepository.syncFromFirestore(firebaseUid, user.userId!);
-        await _taskRepository.syncFromFirestore(firebaseUid, user.userId!);
-
-        if (!mounted) return;
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) =>
-                TaskView(userId: user.userId!, firebaseUserId: firebaseUid),
-          ),
-        );
-      }
+      await _completeSignIn(user: FirebaseAuth.instance.currentUser!);
     } on FirebaseAuthException catch (e) {
       setState(() {
         _errorMessage = "FirebaseAuthException: ${e.code} | ${e.message}";
@@ -147,51 +183,19 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final result = await GoogleAuthService().signInWithGoogle();
+      final result = await _googleAuthService.signInWithGoogle();
 
       if (result == null) return;
 
-      final user = result['user'];
-      final accessToken = result['accessToken'];
+      final user = result['user'] as User?;
+      final accessToken = result['accessToken'] as String?;
 
       if (user == null) return;
-
-      final firebaseUid = user.uid;
-
-      final existingUser = await _userRepository.getUserByEmail(
-        user.email ?? "",
-      );
-
-      int userId;
-
-      if (existingUser == null) {
-        final newUser = user_models.User(
-          name: user.displayName ?? "User",
-          email: user.email ?? "",
-        );
-
-        userId = await _userRepository.createUser(newUser);
-      } else {
-        userId = existingUser.userId!;
-      }
-
-      await _bigTaskRepository.syncFromFirestore(firebaseUid, userId);
-      await _taskRepository.syncFromFirestore(firebaseUid, userId);
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => TaskView(
-            userId: userId,
-            firebaseUserId: firebaseUid,
-            accessToken: accessToken,
-          ),
-        ),
-      );
+      await _completeSignIn(user: user, accessToken: accessToken);
     } catch (e) {
       setState(() {
-        _errorMessage = "Google Sign-In failed: $e";
+        _errorMessage =
+            "Google sign-in succeeded, but app data sync failed: $e";
       });
     } finally {
       if (mounted) {
@@ -235,14 +239,11 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    if (_isCheckingSession) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

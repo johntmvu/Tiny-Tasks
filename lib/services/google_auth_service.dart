@@ -11,8 +11,6 @@ class GoogleAuthService {
   // Sign in with Google
   Future<Map<String, dynamic>?> signInWithGoogle() async {
     try {
-      await _googleSignIn.signOut();
-
       final googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) return null;
@@ -32,6 +30,19 @@ class GoogleAuthService {
       };
     } catch (e) {
       debugPrint('Google sign-in error: $e');
+      return null;
+    }
+  }
+
+  Future<String?> getAccessTokenSilently() async {
+    try {
+      final googleUser = await _googleSignIn.signInSilently();
+      if (googleUser == null) return null;
+
+      final googleAuth = await googleUser.authentication;
+      return googleAuth.accessToken;
+    } catch (e) {
+      debugPrint('Silent Google sign-in error: $e');
       return null;
     }
   }

@@ -21,8 +21,9 @@ class TaskRepository {
     Task taskWithId = task.copyWith(id: sqliteId);
 
     if (taskWithId.reminderEnabled) {
-      final notifId = await NotificationService.instance
-          .scheduleTaskReminder(taskWithId);
+      final notifId = await NotificationService.instance.scheduleTaskReminder(
+        taskWithId,
+      );
       if (notifId != null) {
         taskWithId = taskWithId.copyWith(notificationId: notifId);
         await _dbHelper.updateTask(taskWithId);
@@ -63,8 +64,9 @@ class TaskRepository {
 
     Task updatedTask = task;
     if (task.reminderEnabled && !task.isCompleted) {
-      final notifId =
-          await NotificationService.instance.scheduleTaskReminder(task);
+      final notifId = await NotificationService.instance.scheduleTaskReminder(
+        task,
+      );
       updatedTask = task.copyWith(notificationId: notifId);
     } else {
       updatedTask = task.copyWith(notificationId: null);
@@ -73,7 +75,9 @@ class TaskRepository {
     final result = await _dbHelper.updateTask(updatedTask);
 
     if (firebaseUserId != null && updatedTask.id != null) {
-      final docRef = _tasksCollection(firebaseUserId).doc(updatedTask.id.toString());
+      final docRef = _tasksCollection(
+        firebaseUserId,
+      ).doc(updatedTask.id.toString());
       try {
         await docRef.update(updatedTask.toFirestore());
       } on FirebaseException catch (e) {
@@ -117,6 +121,11 @@ class TaskRepository {
   Future<void> syncFromFirestore(String firebaseUserId, int localUserId) async {
     final snapshot = await _tasksCollection(firebaseUserId).get();
     final firestoreIds = <int>{};
+    final localBigTasks = await _dbHelper.getBigTasksByUser(localUserId);
+    final validBigTaskIds = localBigTasks
+        .map((bigTask) => bigTask.id)
+        .whereType<int>()
+        .toSet();
 
     for (final doc in snapshot.docs) {
       final firestoreId = int.tryParse(doc.id);
@@ -124,6 +133,12 @@ class TaskRepository {
       firestoreIds.add(firestoreId);
 
       final data = doc.data() as Map<String, dynamic>;
+      final firestoreBigTaskId = data['bigTaskId'] as int?;
+      final resolvedBigTaskId =
+          firestoreBigTaskId != null &&
+              validBigTaskIds.contains(firestoreBigTaskId)
+          ? firestoreBigTaskId
+          : null;
 
       final task = Task(
         id: firestoreId,
@@ -137,7 +152,7 @@ class TaskRepository {
         createdAt:
             (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         period: data['period'] ?? 'full',
-        bigTaskId: data['bigTaskId'] as int?,
+        bigTaskId: resolvedBigTaskId,
         isRescheduled: data['isRescheduled'] ?? false,
       );
 

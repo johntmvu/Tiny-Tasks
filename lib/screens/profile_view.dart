@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../login_page.dart';
+import '../services/google_auth_service.dart';
 
 class ProfileView extends StatelessWidget {
   const ProfileView({super.key});
@@ -10,9 +11,7 @@ class ProfileView extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Profile"),
-      ),
+      appBar: AppBar(title: const Text("Profile")),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -49,7 +48,7 @@ class ProfileView extends StatelessWidget {
                 icon: const Icon(Icons.logout),
                 label: const Text("Sign Out"),
                 onPressed: () async {
-                  await FirebaseAuth.instance.signOut();
+                  await GoogleAuthService().signOut();
                   if (!context.mounted) return;
 
                   Navigator.pushAndRemoveUntil(
