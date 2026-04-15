@@ -125,6 +125,22 @@ class TaskRepository {
 
       final data = doc.data() as Map<String, dynamic>;
 
+      final rawBigTaskId = data['bigTaskId'];
+      final bigTaskId = rawBigTaskId is int
+          ? rawBigTaskId
+          : rawBigTaskId is num
+              ? rawBigTaskId.toInt()
+              : null;
+
+      // If this task references a BigTask, verify it exists locally.
+      // If not (e.g. deleted in Firestore), clear the reference so the
+      // FK constraint doesn't block the insert.
+      int? resolvedBigTaskId = bigTaskId;
+      if (bigTaskId != null) {
+        final bigTaskExists = await _dbHelper.getBigTask(bigTaskId) != null;
+        if (!bigTaskExists) resolvedBigTaskId = null;
+      }
+
       final task = Task(
         id: firestoreId,
         userId: localUserId,
@@ -137,7 +153,7 @@ class TaskRepository {
         createdAt:
             (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         period: data['period'] ?? 'full',
-        bigTaskId: data['bigTaskId'] as int?,
+        bigTaskId: resolvedBigTaskId,
         isRescheduled: data['isRescheduled'] ?? false,
       );
 

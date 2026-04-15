@@ -33,6 +33,8 @@ class Task {
     this.notificationId,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  static const _clearField = Object();
+
   Task copyWith({
     int? id,
     int? userId,
@@ -44,10 +46,10 @@ class Task {
     bool? isCompleted,
     DateTime? createdAt,
     String? period,
-    int? bigTaskId,
+    Object? bigTaskId = _clearField,
     bool? isRescheduled,
     bool? reminderEnabled,
-    int? notificationId,
+    Object? notificationId = _clearField,
   }) {
     return Task(
       id: id ?? this.id,
@@ -60,10 +62,10 @@ class Task {
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
       period: period ?? this.period,
-      bigTaskId: bigTaskId ?? this.bigTaskId,
+      bigTaskId: bigTaskId == _clearField ? this.bigTaskId : bigTaskId as int?,
       isRescheduled: isRescheduled ?? this.isRescheduled,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
-      notificationId: notificationId ?? this.notificationId,
+      notificationId: notificationId == _clearField ? this.notificationId : notificationId as int?,
     );
   }
 
