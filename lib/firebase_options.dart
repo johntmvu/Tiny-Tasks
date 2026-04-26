@@ -23,10 +23,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -65,5 +62,16 @@ class DefaultFirebaseOptions {
     messagingSenderId: '347861976641',
     projectId: 'tinytasks-c3045',
     storageBucket: 'tinytasks-c3045.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyAgRio-g8Dzf0cJb5qAElUKy_dT4XqPULw',
+    appId: '1:347861976641:ios:6aa3f9b6ba22860fb1e8c0',
+    messagingSenderId: '347861976641',
+    projectId: 'tinytasks-c3045',
+    storageBucket: 'tinytasks-c3045.firebasestorage.app',
+    iosBundleId: 'com.example.tinytasks',
+    iosClientId:
+        '347861976641-a6cr2dfi49bml30qe3c8ji8pq25m1k7h.apps.googleusercontent.com',
   );
 }

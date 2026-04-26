@@ -10,6 +10,7 @@ class BigTask {
   final String dueDate;
   final String color;
   final DateTime createdAt;
+  final bool isCompleted;
 
   BigTask({
     this.id,
@@ -21,6 +22,7 @@ class BigTask {
     required this.dueDate,
     this.color = 'blue',
     DateTime? createdAt,
+    this.isCompleted = false,
   }) : createdAt = createdAt ?? DateTime.now();
 
   BigTask copyWith({
@@ -33,6 +35,7 @@ class BigTask {
     String? dueDate,
     String? color,
     DateTime? createdAt,
+    bool? isCompleted,
   }) {
     return BigTask(
       id: id ?? this.id,
@@ -44,6 +47,7 @@ class BigTask {
       dueDate: dueDate ?? this.dueDate,
       color: color ?? this.color,
       createdAt: createdAt ?? this.createdAt,
+      isCompleted: isCompleted ?? this.isCompleted,
     );
   }
 
@@ -58,6 +62,7 @@ class BigTask {
       'Due_Date': dueDate,
       'Color': color,
       'Created_At': createdAt.toIso8601String(),
+      'Is_Completed': isCompleted ? 1 : 0,
     };
   }
 
@@ -74,6 +79,7 @@ class BigTask {
       createdAt: map['Created_At'] != null
           ? DateTime.tryParse(map['Created_At'] as String) ?? DateTime.now()
           : DateTime.now(),
+      isCompleted: (map['Is_Completed'] as int? ?? 0) == 1,
     );
   }
 
@@ -87,6 +93,7 @@ class BigTask {
       'dueDate': dueDate,
       'color': color,
       'createdAt': createdAt,
+      'isCompleted': isCompleted,
     };
   }
 
@@ -103,6 +110,7 @@ class BigTask {
       createdAt: map['createdAt'] != null
           ? (map['createdAt'] as Timestamp).toDate()
           : DateTime.now(),
+      isCompleted: map['isCompleted'] as bool? ?? false,
     );
   }
 }
