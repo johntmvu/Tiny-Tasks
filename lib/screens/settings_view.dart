@@ -5,7 +5,10 @@ import 'profile_view.dart';
 import '../main.dart';
 
 class SettingsView extends StatefulWidget {
-  const SettingsView({super.key});
+  final int? userId;
+  final String? firebaseUserId;
+
+  const SettingsView({super.key, this.userId, this.firebaseUserId});
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
@@ -43,7 +46,12 @@ class _SettingsViewState extends State<SettingsView> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const ProfileView()),
+                MaterialPageRoute(
+                  builder: (_) => ProfileView(
+                    userId: widget.userId,
+                    firebaseUserId: widget.firebaseUserId,
+                  ),
+                ),
               );
             },
           ),

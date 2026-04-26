@@ -33,7 +33,7 @@ class SQLiteHelper {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
       onConfigure: (db) async {
@@ -71,6 +71,7 @@ class SQLiteHelper {
         Color TEXT NOT NULL DEFAULT 'blue',
         Created_At $textType,
         FirebaseUserId TEXT,
+        Is_Completed INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (User_ID) REFERENCES User (User_ID) ON DELETE CASCADE
       )
     ''');
@@ -154,6 +155,11 @@ class SQLiteHelper {
           'ALTER TABLE Task ADD COLUMN Notification_ID INTEGER',
         );
       }
+    }
+    if (oldVersion < 9) {
+      await db.execute(
+        'ALTER TABLE BigTask ADD COLUMN Is_Completed INTEGER NOT NULL DEFAULT 0',
+      );
     }
   }
 

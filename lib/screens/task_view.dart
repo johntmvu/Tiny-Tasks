@@ -13,6 +13,7 @@ import 'settings_view.dart';
 import 'history_view.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../services/google_calendar_service.dart';
+import '../services/google_auth_service.dart';
 
 const _kAccentBg = Color(0xFFD7EEF2);
 const _kAccentFg = Color(0xFF1E5A67);
@@ -36,6 +37,7 @@ class TaskView extends StatefulWidget {
 class _TaskViewState extends State<TaskView> {
   final TaskRepository _taskRepository = TaskRepository();
   final BigTaskRepository _bigTaskRepository = BigTaskRepository();
+  final GoogleAuthService _googleAuthService = GoogleAuthService();
 
   DateTime _selectedDate = DateTime.now();
   List<Task> _tasks = [];
@@ -81,6 +83,27 @@ class _TaskViewState extends State<TaskView> {
   String get _formattedDate =>
       DateFormat('EEE, MMM d, y').format(_selectedDate);
   String get _dateKey => DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+  Future<String?> _resolveCalendarAccessToken() async {
+    if (widget.accessToken == null) return null;
+    final refreshedToken = await _googleAuthService.getAccessTokenSilently();
+    return refreshedToken ?? widget.accessToken;
+  }
+
+  Future<void> _syncTaskToGoogleCalendar(Task task) async {
+    final accessToken = await _resolveCalendarAccessToken();
+    if (accessToken == null) return;
+
+    try {
+      await GoogleCalendarService().createEvent(
+        accessToken: accessToken,
+        title: task.title,
+        date: task.date,
+      );
+    } catch (e) {
+      debugPrint('Calendar sync failed: $e');
+    }
+  }
 
   List<Task> get _filteredTasks {
     if (_selectedPeriod == 'full') {
@@ -137,17 +160,7 @@ class _TaskViewState extends State<TaskView> {
         firebaseUserId: widget.firebaseUserId,
       );
 
-      try {
-        if (widget.accessToken != null) {
-          await GoogleCalendarService().createEvent(
-            accessToken: widget.accessToken!,
-            title: task.title,
-            date: task.date,
-          );
-        }
-      } catch (e) {
-        debugPrint("Calendar sync failed: $e");
-      }
+      await _syncTaskToGoogleCalendar(task);
 
       await _loadTasks();
     } catch (e) {
@@ -435,6 +448,9 @@ class _TaskViewState extends State<TaskView> {
       }
 
       await _loadTasks();
+      if (value && task.bigTaskId != null) {
+        await _checkAndAutoCompleteBigTask(task.bigTaskId!);
+      }
     } catch (e) {
       debugPrint('Error updating task: $e');
       if (mounted) {
@@ -442,6 +458,27 @@ class _TaskViewState extends State<TaskView> {
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to update task: $e')));
       }
+    }
+  }
+
+  Future<void> _checkAndAutoCompleteBigTask(int bigTaskId) async {
+    final tinyTasks = await _bigTaskRepository.getTinyTasksForBigTask(bigTaskId);
+    if (tinyTasks.isEmpty) return;
+    if (!tinyTasks.every((t) => t.isCompleted)) return;
+
+    final bigTask = await _bigTaskRepository.getBigTaskById(bigTaskId);
+    if (bigTask == null || bigTask.isCompleted) return;
+
+    await _bigTaskRepository.updateBigTask(
+      bigTask.copyWith(isCompleted: true),
+      firebaseUserId: widget.firebaseUserId,
+    );
+    await _loadBigTasks();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${bigTask.title}" completed! Slot freed up.')),
+      );
     }
   }
 
@@ -854,7 +891,21 @@ class _TaskViewState extends State<TaskView> {
     );
   }
 
+  static const int _bigTaskLimit = 3;
+
   void _showAddBigTaskDialog() {
+    final activeBigTasks = _bigTasks.where((t) => !t.isCompleted).length;
+    if (activeBigTasks >= _bigTaskLimit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Complete a big task to add a new one (limit: 3 active).',
+          ),
+        ),
+      );
+      return;
+    }
+
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
     String selectedPriority = 'medium';
@@ -1290,13 +1341,7 @@ class _TaskViewState extends State<TaskView> {
           firebaseUserId: widget.firebaseUserId,
         );
 
-        if (widget.accessToken != null) {
-          await GoogleCalendarService().createEvent(
-            accessToken: widget.accessToken!,
-            title: task.title,
-            date: task.date,
-          );
-        }
+        await _syncTaskToGoogleCalendar(task);
       }
       await _loadTasks();
     } catch (e) {
@@ -2046,7 +2091,12 @@ class _TaskViewState extends State<TaskView> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const SettingsView()),
+                MaterialPageRoute(
+              builder: (context) => SettingsView(
+                userId: widget.userId,
+                firebaseUserId: widget.firebaseUserId,
+              ),
+            ),
               );
             },
           ),

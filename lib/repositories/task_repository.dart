@@ -130,15 +130,15 @@ class TaskRepository {
     for (final doc in snapshot.docs) {
       final firestoreId = int.tryParse(doc.id);
       if (firestoreId == null) continue;
-      firestoreIds.add(firestoreId);
 
       final data = doc.data() as Map<String, dynamic>;
       final firestoreBigTaskId = data['bigTaskId'] as int?;
-      final resolvedBigTaskId =
-          firestoreBigTaskId != null &&
-              validBigTaskIds.contains(firestoreBigTaskId)
-          ? firestoreBigTaskId
-          : null;
+      if (firestoreBigTaskId != null &&
+          !validBigTaskIds.contains(firestoreBigTaskId)) {
+        continue;
+      }
+
+      firestoreIds.add(firestoreId);
 
       final task = Task(
         id: firestoreId,
@@ -152,7 +152,7 @@ class TaskRepository {
         createdAt:
             (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         period: data['period'] ?? 'full',
-        bigTaskId: resolvedBigTaskId,
+        bigTaskId: firestoreBigTaskId,
         isRescheduled: data['isRescheduled'] ?? false,
       );
 

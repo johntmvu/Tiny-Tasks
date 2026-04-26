@@ -126,7 +126,7 @@ void main() {
       expect(bigTasks.isEmpty, isTrue);
     });
 
-    test('Delete big task sets bigTaskId to NULL on tiny tasks', () async {
+    test('Delete big task also deletes linked tiny tasks', () async {
       final bigTaskId = await bigTaskRepo.createBigTask(BigTask(
         userId: testUserId,
         title: 'Big Task',
@@ -143,8 +143,7 @@ void main() {
       await bigTaskRepo.deleteBigTask(bigTaskId);
 
       final retrieved = await taskRepo.getTaskById(taskId);
-      expect(retrieved, isNotNull);
-      expect(retrieved!.bigTaskId, isNull);
+      expect(retrieved, isNull);
     });
   });
 }

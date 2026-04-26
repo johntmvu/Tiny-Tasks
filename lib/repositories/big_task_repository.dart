@@ -2,15 +2,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../database/sqlite_helper.dart';
 import '../models/big_task.dart';
 import '../models/task.dart';
+import 'task_repository.dart';
 
 class BigTaskRepository {
   final SQLiteHelper _dbHelper;
+  final TaskRepository _taskRepository;
   FirebaseFirestore? _firestoreInstance;
   FirebaseFirestore get _firestore =>
       _firestoreInstance ??= FirebaseFirestore.instance;
 
   BigTaskRepository({SQLiteHelper? dbHelper})
-      : _dbHelper = dbHelper ?? SQLiteHelper.instance;
+      : _dbHelper = dbHelper ?? SQLiteHelper.instance,
+        _taskRepository = TaskRepository(
+          dbHelper: dbHelper ?? SQLiteHelper.instance,
+        );
 
   CollectionReference _bigTasksCollection(String firebaseUserId) =>
       _firestore.collection('users').doc(firebaseUserId).collection('bigTasks');
@@ -49,6 +54,16 @@ class BigTaskRepository {
   }
 
   Future<int> deleteBigTask(int id, {String? firebaseUserId}) async {
+    final tinyTasks = await _dbHelper.getTasksByBigTask(id);
+    for (final tinyTask in tinyTasks) {
+      final tinyTaskId = tinyTask.id;
+      if (tinyTaskId == null) continue;
+      await _taskRepository.deleteTask(
+        tinyTaskId,
+        firebaseUserId: firebaseUserId,
+      );
+    }
+
     final result = await _dbHelper.deleteBigTask(id);
 
     if (firebaseUserId != null) {
@@ -84,7 +99,7 @@ class BigTaskRepository {
       final localId = localBigTask.id;
       if (localId == null) continue;
       if (!firestoreIds.contains(localId)) {
-        await _dbHelper.deleteBigTask(localId);
+        await deleteBigTask(localId);
       }
     }
   }
