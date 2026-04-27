@@ -249,6 +249,37 @@ class _TaskViewState extends State<TaskView> {
     }
   }
 
+  Future<TimeOfDay> _showTaskTimePicker({
+    required BuildContext dialogContext,
+    TimeOfDay? initialTime,
+  }) async {
+    DateTime tempTime = DateTime(
+      2000,
+      1,
+      1,
+      initialTime?.hour ?? TimeOfDay.now().hour,
+      initialTime?.minute ?? TimeOfDay.now().minute,
+    );
+    await showDialog(
+      context: dialogContext,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: SizedBox(
+          height: 220,
+          child: CupertinoDatePicker(
+            mode: CupertinoDatePickerMode.time,
+            initialDateTime: tempTime,
+            use24hFormat: false,
+            onDateTimeChanged: (dt) => tempTime = dt,
+          ),
+        ),
+      ),
+    );
+    return TimeOfDay(hour: tempTime.hour, minute: tempTime.minute);
+  }
+
   void _showEditTaskDialog(Task task) {
     final titleController = TextEditingController(text: task.title);
     final descriptionController = TextEditingController(
@@ -271,6 +302,17 @@ class _TaskViewState extends State<TaskView> {
           ),
           content: StatefulBuilder(
             builder: (context, setModalState) {
+              Future<void> pickTime() async {
+                final picked = await _showTaskTimePicker(
+                  dialogContext: context,
+                  initialTime: selectedTime,
+                );
+                setModalState(() {
+                  selectedTime = picked;
+                  selectedTaskPeriod = picked.hour < 12 ? 'am' : 'pm';
+                });
+              }
+
               return SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -297,18 +339,7 @@ class _TaskViewState extends State<TaskView> {
                     ),
                     const SizedBox(height: 14),
                     GestureDetector(
-                      onTap: () async {
-                        final picked = await showTimePicker(
-                          context: context,
-                          initialTime: selectedTime ?? TimeOfDay.now(),
-                        );
-                        if (picked != null) {
-                          setModalState(() {
-                            selectedTime = picked;
-                            selectedTaskPeriod = picked.hour < 12 ? 'am' : 'pm';
-                          });
-                        }
-                      },
+                      onTap: pickTime,
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
@@ -1450,33 +1481,9 @@ class _TaskViewState extends State<TaskView> {
           content: StatefulBuilder(
             builder: (context, setModalState) {
               Future<void> pickTime() async {
-                DateTime tempTime = DateTime(
-                  2000,
-                  1,
-                  1,
-                  selectedTime?.hour ?? TimeOfDay.now().hour,
-                  selectedTime?.minute ?? TimeOfDay.now().minute,
-                );
-                await showDialog(
-                  context: context,
-                  builder: (_) => Dialog(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: SizedBox(
-                      height: 220,
-                      child: CupertinoDatePicker(
-                        mode: CupertinoDatePickerMode.time,
-                        initialDateTime: tempTime,
-                        use24hFormat: false,
-                        onDateTimeChanged: (dt) => tempTime = dt,
-                      ),
-                    ),
-                  ),
-                );
-                final picked = TimeOfDay(
-                  hour: tempTime.hour,
-                  minute: tempTime.minute,
+                final picked = await _showTaskTimePicker(
+                  dialogContext: context,
+                  initialTime: selectedTime,
                 );
                 setModalState(() {
                   selectedTime = picked;
